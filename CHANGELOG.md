@@ -20,6 +20,8 @@ Changelog:
 - Changed: bumped the version of werkzeug library used
 - Fixed: explicitly defined pytest.marks used in tests internally
 - Added: migration tool converting old project structure to the new one
+- Changed: ShellRunner spawns a subprocess instead of running the command in a
+  default shell which caused issues with some command line tools.
 
 ## [0.8.4] - 2024-02-05
 
