@@ -4,10 +4,10 @@
   "properties": {
     "version": {
       "type": "string",
-      "pattern": "^\\d+(\\.\\d+){1,2}$",
+      "pattern": "^\\d+(\\.\\d+){1,2}(b\\d+)?$",
       "anyOf": [
         {"const": "0.3"},
-        {"pattern": "^0\\.8(\\.[0-5])?$"}
+        {"pattern": "^0\\.8(\\.[0-5])?(b\\d+)?$"}
       ]
     },
     "directory.uploads": {
