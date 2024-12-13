@@ -12,11 +12,12 @@ from flask import request, url_for, jsonify, current_app
 from werkzeug.datastructures import FileStorage
 
 import slivka.conf
+from slivka import JobStatus
 from slivka.compat import resources
 from slivka.conf import ServiceConfig
 from slivka.db.documents import JobRequest, CancelRequest, UploadedFile
 from slivka.db.helpers import insert_one
-from slivka.db.repositories import ServiceStatusRepository, UsageStatsRepository
+from slivka.db.repositories import ServiceStatusRepository, UsageStatsRepository, RequestsRepository
 from slivka.utils.path import *
 from .forms.fields import FileField, ChoiceField
 from .forms.form import BaseForm
@@ -122,6 +123,37 @@ def service_jobs_view(service_id):
         ])
         response.status_code = 422
     return response
+
+
+@bp.route('/services/<service_id>/jobs',
+          endpoint='service_jobs_list', methods=['GET'])
+@bp.route('/jobs/', endpoint="jobs_list", methods=['GET'])
+def jobs_list_view(service_id=None):
+    repo = RequestsRepository(slivka.db.database)
+    filters = []
+    if service_id:
+        filters.append(('service', service_id))
+    limit = 100
+    skip = 0
+    try:
+        for key, val in request.args.items(multi=True):
+            if key == "limit":
+                limit = int(val)
+            elif key == "skip":
+                skip = int(val)
+            elif key == "status":
+                try:
+                    filters.append(("status", JobStatus[val.upper()]))
+                except KeyError:
+                    raise ValueError(f"invalid value: {val}")
+            elif key in ("id", "service", "submissionTime", "status"):
+                filters.append((key, val))
+            else:
+                raise ValueError(f"illegal argument: {key}")
+        job_requests = repo.list(filters=filters, limit=limit, skip=skip)
+        return jsonify({"jobs": [_job_resource(req) for req in job_requests]})
+    except ValueError as e:
+        flask.abort(400, str(e))
 
 
 @bp.route('/services/<service_id>/jobs/<job_id>',

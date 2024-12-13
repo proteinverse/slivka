@@ -1,6 +1,7 @@
 import datetime
 import operator
 import re
+from base64 import urlsafe_b64decode
 from datetime import datetime, date
 from dateutil.relativedelta import relativedelta
 from typing import List
@@ -12,6 +13,8 @@ import pymongo
 import slivka.db
 from slivka import JobStatus
 from slivka.consts import ServiceStatus as Status
+from slivka.db.documents import JobRequest
+from slivka.db.mongo_utils import date_comparison_query
 
 
 @attr.s()
@@ -197,3 +200,33 @@ class UsageStatsMongoDBRepository:
 
 
 UsageStatsRepository = UsageStatsMongoDBRepository
+
+
+class RequestsMongoDBRepository:
+    __requests_collection = "requests"
+
+    def __init__(self, database=None):
+        if database is None:
+            database = slivka.db.database
+        self._database = database
+
+    def list(self, filters=(), limit=100, skip=0):
+        collection = self._database[self.__requests_collection]
+        matchers = []
+        for name, value in filters:
+            if name == "id":
+                matchers.append({"_id": urlsafe_b64decode(value)})
+            elif name == "service":
+                matchers.append({"service": value})
+            elif name == "submissionTime":
+                matchers.append({"timestamp": date_comparison_query(value)})
+            elif name == "status":
+                matchers.append({"status": value})
+            else:
+                raise ValueError(f"invalid filter key: {name}")
+        query = {"$and": matchers} if matchers else {}
+        cursor = collection.find(query, sort={"timestamp": -1}, limit=limit, skip=skip)
+        return [JobRequest(**kw) for kw in cursor]
+
+
+RequestsRepository = RequestsMongoDBRepository
