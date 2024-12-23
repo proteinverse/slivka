@@ -4,6 +4,7 @@ import re
 import shlex
 import subprocess
 from collections import defaultdict
+from collections.abc import Mapping, Collection
 from datetime import datetime, timedelta
 from typing import Sequence
 
@@ -50,11 +51,38 @@ def _job_stat():
 class LSFRunner(Runner):
     finished_job_timestamp = defaultdict(datetime.now)
 
-    def __init__(self, *args, bsubargs=(), **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self,
+                 *_args,
+                 clusters=None,
+                 queue=None,
+                 mem=None,
+                 cpu_cores=None,
+                 gpu=None,
+                 args=(),
+                 bsubargs=(),  # keep for backwards compatibility
+                 **kwargs):
+        super().__init__(*_args, **kwargs)
+        self.bsub_args = bsub_args = []
+        if isinstance(clusters, str):
+            bsub_args.extend(('-clusters', clusters))
+        elif isinstance(clusters, Collection):
+            bsub_args.extend(('-clusters', ' '.join(clusters)))
+        if queue:
+            bsub_args.extend(('-q', queue))
+        if mem:
+            bsub_args.extend(('-R', f'rusage[mem={mem}]'))
+        if cpu_cores:
+            bsub_args.extend(('-n', f'{cpu_cores}'))
+        if isinstance(gpu, Mapping):
+            bsub_args.extend(('-gpu', ':'.join(f'{k}={v}' for k, v in gpu.items())))
+        elif gpu:  # True, 1, "yes" or similar scalar
+            bsub_args.extend(('-gpu', '-'))
+        if isinstance(args, str):
+            args = shlex.split(args)
+        bsub_args.extend(args)
         if isinstance(bsubargs, str):
             bsubargs = shlex.split(bsubargs)
-        self.bsub_args = bsubargs
+        bsub_args.extend(bsubargs)
         self.env.update(
             (env, os.getenv(env)) for env in os.environ
             if env.startswith("LSF") or env.startswith("LSB")
@@ -71,8 +99,7 @@ class LSFRunner(Runner):
             # so the "-o" here *just* sends the job report to its own file.  In future
             # we could possibly switch to "-o /dev/null" if we decide we don't want
             # the job report at all.
-            ['bsub', '-o', 'stdout.lsf', '-e', 'stderr',
-             *self.bsub_args],
+            ['bsub', '-o', 'stdout.lsf', '-e', 'stderr', *self.bsub_args],
             input=input_script,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
