@@ -70,6 +70,8 @@ class LSFRunner(Runner):
         if queue:
             bsub_args.extend(('-q', queue))
         if mem:
+            if not re.match(r'\d+[KMGTPEZ]B?$', mem):
+                raise ValueError(f"invalid mem value '{mem}'")
             bsub_args.extend(('-R', f'rusage[mem={mem}]'))
         if cpu_cores:
             bsub_args.extend(('-n', f'{cpu_cores}'))
