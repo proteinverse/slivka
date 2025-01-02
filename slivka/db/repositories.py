@@ -211,6 +211,26 @@ class RequestsMongoDBRepository:
         self._database = database
 
     def list(self, filters=(), limit=0, skip=0):
+        """
+        Fetch a list of :py:class:`JobRequest`s that satisfy ``filters``
+        criteria. The returned elements are sorted by the request creation
+        date, newest first.
+
+        The filters should be provided as a list of  ``(name, value)`` tuples.
+        Multiple filters are combined with an *and* operator. The available
+        filters are *id*, *service*, *submissionTime* and *status*.
+
+        The **submissionTime** filter consist of date and time in the ISO 8601
+        format optionally preceded by a comparison operator e.g. ``>2024-03``
+        or ``<=2022-05-12T12:00``. No operator is equivalent to an equality
+        operator.
+
+        :param filters: the list of filter rules
+        :type filters: list[tuple[str, Any]]
+        :param limit: limit the number of results, or 0 for no limit
+        :param skip: number of results to skip from the beginning
+        :return: list of requests meeting the criteria
+        """
         collection = self._database[self.__requests_collection]
         matchers = []
         for name, value in filters:
