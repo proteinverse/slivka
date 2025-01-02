@@ -210,7 +210,7 @@ class RequestsMongoDBRepository:
             database = slivka.db.database
         self._database = database
 
-    def list(self, filters=(), limit=100, skip=0):
+    def list(self, filters=(), limit=0, skip=0):
         collection = self._database[self.__requests_collection]
         matchers = []
         for name, value in filters:
