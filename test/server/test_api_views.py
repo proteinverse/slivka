@@ -1,8 +1,13 @@
+import filecmp
 import io
 import os.path
 import pathlib
 import shutil
+from collections import namedtuple
 from datetime import datetime
+
+import flask
+
 from test.tools import in_any_order
 
 import pytest
@@ -20,6 +25,9 @@ from slivka.db.repositories import (
     ServiceStatusInfo,
     ServiceStatusMongoDBRepository,
 )
+
+
+resources = pathlib.Path(__file__).parent / "resources"
 
 
 @pytest.fixture(scope="module")
@@ -657,3 +665,65 @@ def test_job_view_parameters_output_used_as_input(
         response.json["parameters"]["file-param"]
         == f"{completed_job_request.b64id}/stdout"
     )
+
+
+class TestSuccessfulFileUpload:
+    @pytest.fixture(scope="class")
+    def response(self, app_client):
+        return app_client.post(
+            "/api/files",
+            data={"file": ((resources / "example.txt").open("rb"), "example file", "application/x-lipsum")}
+        )
+
+    def test_status_201(self, response):
+        assert response.status_code == 201
+
+    def test_file_has_title(self, response):
+        assert response.json["label"] == "example file"
+
+    def test_file_has_media_type(self, response):
+        assert response.json["mediaType"] == "application/x-lipsum"
+
+    def test_file_exists_in_uploads(self, response, uploads_directory):
+        uploaded_file_path = os.path.join(uploads_directory, response.json['path'])
+        assert os.path.exists(uploaded_file_path)
+        assert filecmp.cmp(resources / "example.txt", uploaded_file_path)
+
+
+def test_file_upload_missing_file_parameter(app_client):
+    response = app_client.post(
+        "/api/files",
+        data={"input": (resources / "example.txt").open("rb")}
+    )
+    assert response.status_code == 400
+
+
+class TestUploadJobInput:
+    @pytest.fixture()
+    def input_file_info(self, app_client, request):
+        title, media_type = request.param
+        response = app_client.post(
+            "/api/services/fake/jobs",
+            data={
+                "text-param": "some text",
+                "file-param": ((resources / "example.txt").open("rb"), title, media_type)
+            }
+        )
+        assert response.status_code == 202
+        return response.json["parameters"]["file-param"], title, media_type
+
+    @pytest.mark.parametrize(
+        "input_file_info",
+        [
+            (None, None),
+            ("Title", "application/x-lorem"),
+            ("Other Title", "text/plain; charset=UTF-8")
+        ],
+        indirect=True
+    )
+    def test_view_input_file_default_filename_and_media_type(self, app_client, input_file_info):
+        file_id, title, media_type = input_file_info
+        response = app_client.get(f"/api/files/{file_id}")
+        assert response.status_code == 200
+        assert response.json["label"] == (title if title is not None else "file-param")
+        assert response.json["mediaType"] == media_type

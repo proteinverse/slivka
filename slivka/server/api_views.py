@@ -315,14 +315,15 @@ def files_view():
         flask.abort(400, err_msg)
     oid = ObjectId()
     filename = base64.urlsafe_b64encode(oid.binary).decode()
-    path = os.path.join(
+    save_path = os.path.join(
         flask.current_app.config['uploads_dir'], filename
     )
     file.seek(0)
-    file.save(path)
-    insert_one(slivka.db.database, UploadedFile(_id=oid, path=path))
+    file.save(save_path)
+    uploaded_file = UploadedFile(_id=oid, title=file.filename, media_type=file.mimetype, path=save_path)
+    insert_one(slivka.db.database, uploaded_file)
 
-    body = _uploaded_file_resource(filename)
+    body = _uploaded_file_resource(uploaded_file)
     response = jsonify(body)
     response.status_code = 201
     response.headers['Location'] = body["@url"]
@@ -331,24 +332,29 @@ def files_view():
 
 @bp.route('/files/<file_id>', endpoint='file', methods=['GET'])
 def file_view(file_id):
-    path = os.path.join(flask.current_app.config['uploads_dir'], file_id)
-    if not os.path.isfile(path):
+    uploaded_file = UploadedFile.find_one(slivka.db.database, id=file_id)
+    if not uploaded_file:
         flask.abort(404)
-    body = _uploaded_file_resource(file_id)
+    body = _uploaded_file_resource(uploaded_file)
     response = jsonify(body)
     response.headers['Location'] = body["@url"]
     return response
 
 
-def _uploaded_file_resource(file_id):
+def _uploaded_file_resource(uploaded_file: UploadedFile):
+    file_id = uploaded_file.b64id
+    uploads_dir = flask.current_app.config["uploads_dir"]
+    path = os.path.relpath(uploaded_file.path, uploads_dir)
+    if os.path.sep == "\\":
+        path = path.replace("\\", "/")
     return {
         "@url": url_for(".file", file_id=file_id),
-        "@content": url_for("media.uploads", file_path=file_id),
+        "@content": url_for("media.uploads", file_path=path),
         "id": file_id,
         "jobId": None,
-        "path": file_id,
-        "label": "uploaded",
-        "mediaType": "",
+        "path": path,
+        "label": uploaded_file.title,
+        "mediaType": uploaded_file.media_type,
     }
 
 
