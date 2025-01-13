@@ -9,7 +9,7 @@ from typing import Type
 import flask
 from bson import ObjectId
 from flask import request, url_for, jsonify, current_app
-from werkzeug.datastructures import FileStorage
+from werkzeug.datastructures import FileStorage, MultiDict
 
 import slivka.conf
 from slivka import JobStatus
@@ -20,6 +20,7 @@ from slivka.db.helpers import insert_one
 from slivka.db.repositories import ServiceStatusRepository, UsageStatsRepository, RequestsRepository
 from slivka.utils.path import *
 from .forms.fields import FileField, ChoiceField
+from .forms.file_proxy import FileProxy
 from .forms.form import BaseForm
 
 bp = flask.Blueprint('api-v1_1', __name__, url_prefix='/api/v1.1')
@@ -104,8 +105,21 @@ def service_jobs_view(service_id):
     if service is None:
         flask.abort(404)
     form_cls: Type[BaseForm] = flask.current_app.config['forms'][service_id]
-    form = form_cls(flask.request.form, flask.request.files)
+
+    files = MultiDict()
+    file_proxy_to_file_storage = []
+    for key, file_storage in flask.request.files.items(multi=True):
+        file_proxy = FileProxy(file=file_storage)
+        files.add(key, file_proxy)
+        file_proxy_to_file_storage.append((file_proxy, file_storage))
+
+    form = form_cls(flask.request.form, files)
     if form.is_valid():
+        for file_proxy, file_storage in file_proxy_to_file_storage:
+            uploaded_file = save_uploaded_file(
+                file_storage, current_app.config['uploads_dir'], slivka.db.database)
+            # set every file_proxy path for the form to be saved to the database
+            file_proxy.path = uploaded_file.path
         job_request = form.save(
             slivka.db.database, current_app.config['uploads_dir'])
         content = _job_resource(job_request)
