@@ -698,32 +698,43 @@ def test_file_upload_missing_file_parameter(app_client):
     assert response.status_code == 400
 
 
+@pytest.mark.parametrize(
+    ("title", "content_type", "expected_title", "expected_media_type"),
+    [
+        ("Title", "application/x-lorem", "Title", "application/x-lorem"),
+        ("Other Title", "text/plain; charset=UTF-8", "Other Title", "text/plain")
+    ]
+)
 class TestUploadJobInput:
     @pytest.fixture()
-    def input_file_info(self, app_client, request):
-        title, media_type = request.param
+    def input_file_id(self, app_client, title, content_type):
         response = app_client.post(
             "/api/services/fake/jobs",
             data={
                 "text-param": "some text",
-                "file-param": ((resources / "example.txt").open("rb"), title, media_type)
+                "file-param": ((resources / "example.txt").open("rb"), title, content_type)
             }
         )
         assert response.status_code == 202
-        return response.json["parameters"]["file-param"], title, media_type
+        return response.json["parameters"]["file-param"]
 
-    @pytest.mark.parametrize(
-        "input_file_info",
-        [
-            (None, None),
-            ("Title", "application/x-lorem"),
-            ("Other Title", "text/plain; charset=UTF-8")
-        ],
-        indirect=True
-    )
-    def test_view_input_file_default_filename_and_media_type(self, app_client, input_file_info):
-        file_id, title, media_type = input_file_info
-        response = app_client.get(f"/api/files/{file_id}")
-        assert response.status_code == 200
-        assert response.json["label"] == (title if title is not None else "file-param")
-        assert response.json["mediaType"] == media_type
+    @pytest.fixture()
+    def file_response(self, app_client, input_file_id):
+        return app_client.get(f"/api/files/{input_file_id}")
+
+    def test_file_exists(self, file_response, expected_title, expected_media_type):
+        assert file_response.status_code == 200
+
+    def test_file_has_label(self, file_response, expected_title, expected_media_type):
+        assert file_response.json["label"] == expected_title
+
+    def test_file_has_media_type(self, file_response, expected_title, expected_media_type):
+        assert file_response.json["mediaType"] == expected_media_type
+
+    def test_file_has_no_job(self, file_response, expected_title, expected_media_type):
+        assert file_response.json["jobId"] is None
+
+    def test_file_exists_in_uploads(self, uploads_directory, file_response, expected_title, expected_media_type):
+        uploaded_file_path = os.path.join(uploads_directory, file_response.json['path'])
+        assert os.path.exists(uploaded_file_path)
+        assert filecmp.cmp(resources / "example.txt", uploaded_file_path)
