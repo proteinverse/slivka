@@ -313,21 +313,27 @@ def files_view():
         err_msg = ("Multipart form 'file' parameter not provided "
                    "or does not contain a file.")
         flask.abort(400, err_msg)
-    oid = ObjectId()
-    filename = base64.urlsafe_b64encode(oid.binary).decode()
-    save_path = os.path.join(
-        flask.current_app.config['uploads_dir'], filename
+    uploaded_file = save_uploaded_file(
+        file,
+        flask.current_app.config['uploads_dir'],
+        slivka.db.database
     )
-    file.seek(0)
-    file.save(save_path)
-    uploaded_file = UploadedFile(_id=oid, title=file.filename, media_type=file.mimetype, path=save_path)
-    insert_one(slivka.db.database, uploaded_file)
-
     body = _uploaded_file_resource(uploaded_file)
     response = jsonify(body)
     response.status_code = 201
     response.headers['Location'] = body["@url"]
     return response
+
+
+def save_uploaded_file(file: FileStorage, directory, database):
+    oid = ObjectId()
+    filename = base64.urlsafe_b64encode(oid.binary).decode()
+    save_path = os.path.join(directory, filename)
+    file.seek(0)
+    file.save(save_path)
+    uploaded_file = UploadedFile(_id=oid, title=file.filename, media_type=file.mimetype, path=save_path)
+    insert_one(database, uploaded_file)
+    return uploaded_file
 
 
 @bp.route('/files/<file_id>', endpoint='file', methods=['GET'])
