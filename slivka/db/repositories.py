@@ -234,6 +234,28 @@ class RequestsMongoDBRepository:
         if limit == 0:
             return []
         collection = self._database[self.__requests_collection]
+        query = self._query_from_filters(filters)
+        cursor = collection.find(
+            query, sort={"timestamp": -1},
+            limit=limit if limit is not None else 0,  # 0 limit means no limit
+            skip=skip
+        )
+        return [JobRequest(**kw) for kw in cursor]
+
+    def count(self, filters=()):
+        """
+        Count the total number of jobs meeting the given filters.
+        The meaning of *filters* is the same as for the :py:meth:`list` method.
+
+        :param filters: the list of filter rules
+        :return: number of requests meeting the criteria
+        """
+        collection = self._database[self.__requests_collection]
+        query = self._query_from_filters(filters)
+        return collection.count_documents(query)
+
+    @staticmethod
+    def _query_from_filters(filters):
         matchers = []
         for name, value in filters:
             if name == "id":
@@ -246,13 +268,7 @@ class RequestsMongoDBRepository:
                 matchers.append({"status": value})
             else:
                 raise ValueError(f"invalid filter key: {name}")
-        query = {"$and": matchers} if matchers else {}
-        cursor = collection.find(
-            query, sort={"timestamp": -1},
-            limit=limit if limit is not None else 0,  # 0 limit means no limit
-            skip=skip
-        )
-        return [JobRequest(**kw) for kw in cursor]
+        return {"$and": matchers} if matchers else {}
 
 
 RequestsRepository = RequestsMongoDBRepository
