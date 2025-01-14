@@ -133,7 +133,7 @@ def jobs_list_view(service_id=None):
     filters = []
     if service_id:
         filters.append(('service', service_id))
-    limit = 0
+    limit = None
     skip = 0
     try:
         for key, val in request.args.items(multi=True):

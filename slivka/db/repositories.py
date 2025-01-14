@@ -210,7 +210,7 @@ class RequestsMongoDBRepository:
             database = slivka.db.database
         self._database = database
 
-    def list(self, filters=(), limit=0, skip=0):
+    def list(self, filters=(), limit=None, skip=0):
         """
         Fetch a list of :py:class:`JobRequest`s that satisfy ``filters``
         criteria. The returned elements are sorted by the request creation
@@ -227,10 +227,12 @@ class RequestsMongoDBRepository:
 
         :param filters: the list of filter rules
         :type filters: list[tuple[str, Any]]
-        :param limit: limit the number of results, or 0 for no limit
+        :param limit: limit the number of results, None for no limit
         :param skip: number of results to skip from the beginning
         :return: list of requests meeting the criteria
         """
+        if limit == 0:
+            return []
         collection = self._database[self.__requests_collection]
         matchers = []
         for name, value in filters:
@@ -245,7 +247,11 @@ class RequestsMongoDBRepository:
             else:
                 raise ValueError(f"invalid filter key: {name}")
         query = {"$and": matchers} if matchers else {}
-        cursor = collection.find(query, sort={"timestamp": -1}, limit=limit, skip=skip)
+        cursor = collection.find(
+            query, sort={"timestamp": -1},
+            limit=limit if limit is not None else 0,  # 0 limit means no limit
+            skip=skip
+        )
         return [JobRequest(**kw) for kw in cursor]
 
 
