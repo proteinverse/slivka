@@ -1,12 +1,11 @@
+import base64
+import contextlib
 import filecmp
 import io
 import os.path
 import pathlib
 import shutil
-from collections import namedtuple
 from datetime import datetime
-
-import flask
 
 from test.tools import in_any_order
 
@@ -20,7 +19,7 @@ from slivka import JobStatus
 from slivka.conf import SlivkaSettings
 from slivka.conf.loaders import load_settings_0_3
 from slivka.db.documents import JobRequest, UploadedFile
-from slivka.db.helpers import delete_one, insert_one
+from slivka.db.helpers import delete_one, insert_one, delete_many, pull_one
 from slivka.db.repositories import (
     ServiceStatusInfo,
     ServiceStatusMongoDBRepository,
@@ -738,3 +737,63 @@ class TestUploadJobInput:
         uploaded_file_path = os.path.join(uploads_directory, file_response.json['path'])
         assert os.path.exists(uploaded_file_path)
         assert filecmp.cmp(resources / "example.txt", uploaded_file_path)
+
+
+@pytest.fixture(scope="class")
+def add_uploaded_file(uploads_directory, database):
+    added_paths = []
+    added_files = []
+    def add_file(file, title=None, media_type=None):
+        nonlocal added_paths, added_files
+        oid = ObjectId()
+        filename = base64.urlsafe_b64encode(oid.binary).decode()
+        path = os.path.join(uploads_directory, filename)
+        with open(path, "w") as fdst:
+            shutil.copyfileobj(file, fdst)
+        added_paths.append(path)
+        uploaded_file = UploadedFile(_id=oid, title=title, media_type=media_type, path=path)
+        insert_one(database, uploaded_file)
+        added_files.append(uploaded_file)
+        return uploaded_file
+    yield add_file
+    for path in added_paths:
+        with contextlib.suppress(IOError):
+            os.remove(path)
+    delete_many(database, added_files)
+
+
+@pytest.mark.parametrize(
+    "new_data, expected_data",
+    [
+        (
+            {},
+            {"label": "initial title", "mediaType": "text/initial-type"}
+        ),
+        (
+            {"label": "new title"},
+            {"label": "new title", "mediaType": "text/initial-type"}
+        ),
+        (
+            {"mediaType": "text/lorem"},
+            {"label": "initial title", "mediaType": "text/lorem"}
+        ),
+        (
+            {"label": "another title", "mediaType": "text/lipsum"},
+            {"label": "another title", "mediaType": "text/lipsum"}
+        )
+    ]
+)
+def test_update_file_metadata(app_client, database, add_uploaded_file, new_data, expected_data):
+    uploaded_file = add_uploaded_file(
+        (resources / "example.txt").open("rt"),
+        title="initial title",
+        media_type="text/initial-type"
+    )
+    reply = app_client.put(f"/api/files/{uploaded_file.b64id}", data=new_data)
+    pull_one(database, uploaded_file)
+    assert reply.status_code == 200
+    assert reply.json["label"] == expected_data["label"]
+    assert reply.json["mediaType"] == expected_data["mediaType"]
+
+    assert uploaded_file.title == expected_data["label"]
+    assert uploaded_file.media_type == expected_data["mediaType"]

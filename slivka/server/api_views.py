@@ -16,7 +16,7 @@ from slivka import JobStatus
 from slivka.compat import resources
 from slivka.conf import ServiceConfig
 from slivka.db.documents import JobRequest, CancelRequest, UploadedFile
-from slivka.db.helpers import insert_one
+from slivka.db.helpers import insert_one, push_one
 from slivka.db.repositories import ServiceStatusRepository, UsageStatsRepository, RequestsRepository
 from slivka.utils.path import *
 from .forms.fields import FileField, ChoiceField
@@ -350,11 +350,17 @@ def save_uploaded_file(file: FileStorage, directory, database):
     return uploaded_file
 
 
-@bp.route('/files/<file_id>', endpoint='file', methods=['GET'])
+@bp.route('/files/<file_id>', endpoint='file', methods=['GET', 'PUT'])
 def file_view(file_id):
     uploaded_file = UploadedFile.find_one(slivka.db.database, id=file_id)
     if not uploaded_file:
         flask.abort(404)
+    if request.method == "PUT":
+        if "label" in request.form:
+            uploaded_file.title = request.form["label"]
+        if "mediaType" in request.form:
+            uploaded_file.media_type = request.form["mediaType"]
+        push_one(slivka.db.database, uploaded_file)
     body = _uploaded_file_resource(uploaded_file)
     response = jsonify(body)
     response.headers['Location'] = body["@url"]
