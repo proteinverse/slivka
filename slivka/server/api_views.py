@@ -71,7 +71,7 @@ def _service_resource(service: ServiceConfig):
         status = {
             'status': status.status.name,
             'errorMessage': status.message,
-            'timestamp': status.timestamp.isoformat()
+            'timestamp': status.timestamp.astimezone().isoformat()
         }
     else:
         status = {
@@ -225,11 +225,11 @@ def _job_resource(job_request: JobRequest):
         'id': job_request.b64id,
         'service': job_request.service,
         'parameters': parameters,
-        'submissionTime': job_request.submission_time.isoformat(),
+        'submissionTime': job_request.submission_time.astimezone().isoformat(),
         'completionTime': (
                 job_request.status.is_finished() and
                 job_request.completion_time and
-                job_request.completion_time.isoformat() or None
+                job_request.completion_time.astimezone().isoformat() or None
         ),
         'finished': job_request.status.is_finished(),
         'status': job_request.status.name
