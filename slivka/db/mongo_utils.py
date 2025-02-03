@@ -58,7 +58,7 @@ def date_comparison_query(expression):
     # datetime.datetime requires month and day
     datetime_dict.setdefault("month", 1)
     datetime_dict.setdefault("day", 1)
-    value = datetime.datetime(**datetime_dict)
+    value = datetime.datetime(**datetime_dict).astimezone()
     # comparisons must be no more accurate than the date resolution
     if operator == "$eq":
         # e.g. =YYYY-mm means YYYY-mm-01T00:00:00 <= date <= YYYY-mm-31T23:59:59
