@@ -19,6 +19,7 @@ def migrate():
     project_version = slivka.conf.settings.version
     migrations = [
         import_module(".migration_1", __package__),
+        import_module(".migration_2", __package__)
     ]
     migrations = [
         m for m in migrations if project_version in m.from_versions
