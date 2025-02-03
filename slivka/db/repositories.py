@@ -210,8 +210,52 @@ class RequestsMongoDBRepository:
             database = slivka.db.database
         self._database = database
 
-    def list(self, filters=(), limit=100, skip=0):
+    def list(self, filters=(), limit=None, skip=0):
+        """
+        Fetch a list of :py:class:`JobRequest`s that satisfy ``filters``
+        criteria. The returned elements are sorted by the request creation
+        date, newest first.
+
+        The filters should be provided as a list of  ``(name, value)`` tuples.
+        Multiple filters are combined with an *and* operator. The available
+        filters are *id*, *service*, *submissionTime* and *status*.
+
+        The **submissionTime** filter consist of date and time in the ISO 8601
+        format optionally preceded by a comparison operator e.g. ``>2024-03``
+        or ``<=2022-05-12T12:00``. No operator is equivalent to an equality
+        operator.
+
+        :param filters: the list of filter rules
+        :type filters: list[tuple[str, Any]]
+        :param limit: limit the number of results, None for no limit
+        :param skip: number of results to skip from the beginning
+        :return: list of requests meeting the criteria
+        """
+        if limit == 0:
+            return []
         collection = self._database[self.__requests_collection]
+        query = self._query_from_filters(filters)
+        cursor = collection.find(
+            query, sort={"timestamp": -1},
+            limit=limit if limit is not None else 0,  # 0 limit means no limit
+            skip=skip
+        )
+        return [JobRequest(**kw) for kw in cursor]
+
+    def count(self, filters=()):
+        """
+        Count the total number of jobs meeting the given filters.
+        The meaning of *filters* is the same as for the :py:meth:`list` method.
+
+        :param filters: the list of filter rules
+        :return: number of requests meeting the criteria
+        """
+        collection = self._database[self.__requests_collection]
+        query = self._query_from_filters(filters)
+        return collection.count_documents(query)
+
+    @staticmethod
+    def _query_from_filters(filters):
         matchers = []
         for name, value in filters:
             if name == "id":
@@ -224,9 +268,7 @@ class RequestsMongoDBRepository:
                 matchers.append({"status": value})
             else:
                 raise ValueError(f"invalid filter key: {name}")
-        query = {"$and": matchers} if matchers else {}
-        cursor = collection.find(query, sort={"timestamp": -1}, limit=limit, skip=skip)
-        return [JobRequest(**kw) for kw in cursor]
+        return {"$and": matchers} if matchers else {}
 
 
 RequestsRepository = RequestsMongoDBRepository

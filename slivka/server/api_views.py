@@ -133,7 +133,7 @@ def jobs_list_view(service_id=None):
     filters = []
     if service_id:
         filters.append(('service', service_id))
-    limit = 100
+    limit = None
     skip = 0
     try:
         for key, val in request.args.items(multi=True):
@@ -151,7 +151,10 @@ def jobs_list_view(service_id=None):
             else:
                 raise ValueError(f"illegal argument: {key}")
         job_requests = repo.list(filters=filters, limit=limit, skip=skip)
-        return jsonify({"jobs": [_job_resource(req) for req in job_requests]})
+        return jsonify({
+            "totalCount": repo.count(filters),
+            "jobs": [_job_resource(req) for req in job_requests]
+        })
     except ValueError as e:
         flask.abort(400, str(e))
 

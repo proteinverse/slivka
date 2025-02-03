@@ -2,20 +2,24 @@ import io
 import os.path
 import pathlib
 import shutil
+from base64 import urlsafe_b64encode, urlsafe_b64decode
 from datetime import datetime
+
+import mongomock
+
 from test.tools import in_any_order
 
 import pytest
 import yaml
 from bson import ObjectId
 
-import slivka.compat.resources
 import slivka.server
 from slivka import JobStatus
+from slivka.compat import resources
 from slivka.conf import SlivkaSettings
 from slivka.conf.loaders import load_settings_0_3
 from slivka.db.documents import JobRequest, UploadedFile
-from slivka.db.helpers import delete_one, insert_one
+from slivka.db.helpers import delete_one, insert_one, insert_many
 from slivka.db.repositories import (
     ServiceStatusInfo,
     ServiceStatusMongoDBRepository,
@@ -303,6 +307,101 @@ class TestJobInvalidView:
 
     def test_no_job_request_created(self, database):
         assert JobRequest.find_one(database) is None
+
+
+# >>> Jobs listing tests >>>
+
+@pytest.fixture()
+def job_requests(request, database):
+    data = yaml.safe_load(request.param)
+    for req in data:
+        oid = urlsafe_b64decode(req['_id'].encode())
+        req['_id'] = ObjectId(oid)
+    requests = [JobRequest(**it) for it in data]
+    insert_many(database, requests)
+    return requests
+
+
+@pytest.mark.parametrize(
+    "job_requests, query, expected_response",
+    [
+        (
+            resources.open_text(__package__, 'resources/requests_set_1.yaml'),
+            {"service": "test0"},
+            {
+                "totalCount": 4,
+                "jobs": [
+                    {
+                        "@url": "/api/jobs/Z5oiTQoaTox_k8PF",
+                        "id": "Z5oiTQoaTox_k8PF",
+                        "service": "test0",
+                        "parameters": {},
+                        "submissionTime": "2025-01-20T20:10:00",
+                        "completionTime": None,
+                        "finished": True,
+                        "status": "FAILED"
+                    },
+                    {
+                        "@url": "/api/jobs/Z5oiTQoaTox_k8PD",
+                        "id": "Z5oiTQoaTox_k8PD",
+                        "service": "test0",
+                        "parameters": {},
+                        "submissionTime": "2025-01-20T20:00:00",
+                        "completionTime": None,
+                        "finished": True,
+                        "status": "COMPLETED"
+                    },
+                    {
+                        "@url": "/api/jobs/Z5oiTQoaTox_k8PC",
+                        "id": "Z5oiTQoaTox_k8PC",
+                        "service": "test0",
+                        "parameters": {},
+                        "submissionTime": "2025-01-20T19:30:00",
+                        "completionTime": None,
+                        "finished": True,
+                        "status": "COMPLETED"
+                    },
+                    {
+                        "@url": "/api/jobs/Z5oiTQoaTox_k8PB",
+                        "id": "Z5oiTQoaTox_k8PB",
+                        "service": "test0",
+                        "parameters": {},
+                        "submissionTime": "2025-01-20T19:00:00",
+                        "completionTime": None,
+                        "finished": True,
+                        "status": "COMPLETED"
+                    },
+                ]
+            }
+        ),
+        (
+            resources.open_text(__package__, 'resources/requests_set_1.yaml'),
+            {"service": "test1", "status": "FAILED"},
+            {
+                "totalCount": 1,
+                "jobs": [
+                    {
+                        "@url": "/api/jobs/Z5oiTQoaTox_k8PE",
+                        "id": "Z5oiTQoaTox_k8PE",
+                        "service": "test1",
+                        "parameters": {},
+                        "submissionTime": "2025-01-20T20:10:00",
+                        "completionTime": None,
+                        "finished": True,
+                        "status": "FAILED"
+                    }
+                ]
+            }
+        )
+    ],
+    indirect=["job_requests"]
+)
+def test_list_jobs_with_filters(mongo_client, app_client, job_requests, query, expected_response):
+    if isinstance(mongo_client, mongomock.MongoClient):
+        pytest.skip("Unable to test with mongomock database")
+    rep = app_client.get("/api/jobs/", query_string=query)
+    assert rep.status_code == 200
+    assert rep.json == expected_response
 
 
 @pytest.fixture(

@@ -1,5 +1,9 @@
 Changelog:
 
+## [0.8.5b3]
+
+- Added: jobs dasboard API where existing jobs can be retrieved.
+
 ## [0.8.5] - (upcoming)
 
 - Added: support for Python 3.11, 3.12 and 3.13
@@ -24,6 +28,8 @@ Changelog:
   default shell which caused issues with some command line tools.
 - Added: 60-seconds timeout to job-status-checking command, to prevent the
   scheduler from hanging indefinitely on execution system failure.
+- Changed: extend settings file validation to allow beta pre-releases in slivka
+  version field.
 
 ## [0.8.4] - 2024-02-05
 
