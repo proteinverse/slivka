@@ -1,7 +1,6 @@
 import os.path
 import pathlib
 
-import ruamel.yaml
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 
@@ -10,6 +9,7 @@ from slivka.utils.path import request_id_to_job_path
 name = "Nested job directory structure"
 from_versions = SpecifierSet("<0.8.5b1", prereleases=True)
 to_version = Version("0.8.5b1")
+optional = True
 
 
 def apply():
@@ -34,10 +34,3 @@ def apply():
         )
         os.makedirs(new_wd)
         old_wd.replace(new_wd)
-    if slivka.conf.settings.settings_file:
-        yaml = ruamel.yaml.YAML()
-        with open(slivka.conf.settings.settings_file) as f:
-            settings = yaml.load(f)
-        settings["version"] = "0.8.5b1"
-        with open(slivka.conf.settings.settings_file, "w") as f:
-            yaml.dump(settings, f)
