@@ -4,8 +4,8 @@ from packaging.specifiers import SpecifierSet
 from packaging.version import Version
 
 name = "Timezone aware timestamps"
-from_versions = SpecifierSet("<0.8.5b4", prereleases=True)
-to_version = Version("0.8.5b4")
+from_versions = SpecifierSet("<0.8.5b5", prereleases=True)
+to_version = Version("0.8.5b5")
 optional = False
 
 def apply():
