@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from packaging.specifiers import SpecifierSet
 from packaging.version import Version
@@ -10,15 +10,18 @@ optional = False
 
 def apply():
     import slivka.db
-    import slivka.db.documents
     requests_collection = slivka.db.database['requests']
-    offset = datetime.now().astimezone().utcoffset().total_seconds()
-    ms_offset = int(offset * 1000)
-    requests_collection.update_many(
-        {"timestamp": {"$exists": True}},
-        [{"$set": {"timestamp": {"$subtract": ["$timestamp", ms_offset]}}}]
-    )
-    requests_collection.update_many(
-        {"completion_time": {"$exists": True}},
-        [{"$set": {"completion_time": {"$subtract": ["$completion_time", ms_offset]}}}]
-    )
+    for doc in requests_collection.find({"timestamp": {"$exists": True}}):
+        new_timestamp = doc["timestamp"].astimezone(timezone.utc)
+        new_completion_time = (
+            doc["completion_time"].astimezone(timezone.utc)
+            if doc.get("completion_time") is not None
+            else None
+        )
+        requests_collection.update_one(
+            {"_id": doc["_id"]},
+            { "$set": {
+                "timestamp": new_timestamp,
+                "completion_time": new_completion_time
+            }}
+        )
