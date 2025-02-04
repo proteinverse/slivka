@@ -172,8 +172,6 @@ class BaseForm(metaclass=DeclarativeFormMetaclass):
         inputs = {}
         for field in self.fields.values():
             value = self.cleaned_data[field.id]
-            if isinstance(field, FileField):
-                field.save_file(value, database, directory)
             inputs[field.id] = field.to_arg(value)
         request = JobRequest(service=self.service, inputs=inputs)
         request.insert(database)

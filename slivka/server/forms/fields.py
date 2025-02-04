@@ -617,19 +617,6 @@ class FileField(BaseField):
         if self.extensions: j['extensions'] = self.extensions
         return j
 
-    def save_file(self, file: FileProxy,
-                  database: pymongo.database.Database,
-                  directory: str):
-        if file is None or file.path is not None:
-            return
-        oid = ObjectId()
-        path = os.path.join(directory, urlsafe_b64encode(oid.binary).decode())
-        file.save_as(path)
-        doc = UploadedFile(
-            _id=oid, title=self.id, media_type=self.media_type, path=path
-        )
-        insert_one(database, doc)
-
     def to_arg(self, value: 'FileProxy'):
         """ Converts FileProxy to cmd argument.
 
@@ -646,13 +633,6 @@ class FileField(BaseField):
 class FileArrayField(ArrayFieldMixin, FileField):
     def fetch_value(self, data: MultiDict, files: MultiDict):
         return (files.getlist(self.id) + data.getlist(self.id)) or None
-
-    def save_file(self, files: List[FileProxy],
-                  database: pymongo.database.Database,
-                  directory: str):
-        if files is not None:
-            for file in files:
-                super().save_file(file, database, directory)
 
 
 # Helper methods that are used for value validation.

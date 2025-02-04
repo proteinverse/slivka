@@ -9,17 +9,18 @@ from typing import Type
 import flask
 from bson import ObjectId
 from flask import request, url_for, jsonify, current_app
-from werkzeug.datastructures import FileStorage
+from werkzeug.datastructures import FileStorage, MultiDict
 
 import slivka.conf
 from slivka import JobStatus
 from slivka.compat import resources
 from slivka.conf import ServiceConfig
 from slivka.db.documents import JobRequest, CancelRequest, UploadedFile
-from slivka.db.helpers import insert_one
+from slivka.db.helpers import insert_one, push_one
 from slivka.db.repositories import ServiceStatusRepository, UsageStatsRepository, RequestsRepository
 from slivka.utils.path import *
 from .forms.fields import FileField, ChoiceField
+from .forms.file_proxy import FileProxy
 from .forms.form import BaseForm
 
 bp = flask.Blueprint('api-v1_1', __name__, url_prefix='/api/v1.1')
@@ -104,8 +105,21 @@ def service_jobs_view(service_id):
     if service is None:
         flask.abort(404)
     form_cls: Type[BaseForm] = flask.current_app.config['forms'][service_id]
-    form = form_cls(flask.request.form, flask.request.files)
+
+    files = MultiDict()
+    file_proxy_to_file_storage = []
+    for key, file_storage in flask.request.files.items(multi=True):
+        file_proxy = FileProxy(file=file_storage)
+        files.add(key, file_proxy)
+        file_proxy_to_file_storage.append((file_proxy, file_storage))
+
+    form = form_cls(flask.request.form, files)
     if form.is_valid():
+        for file_proxy, file_storage in file_proxy_to_file_storage:
+            uploaded_file = save_uploaded_file(
+                file_storage, current_app.config['uploads_dir'], slivka.db.database)
+            # set every file_proxy path for the form to be saved to the database
+            file_proxy.path = uploaded_file.path
         job_request = form.save(
             slivka.db.database, current_app.config['uploads_dir'])
         content = _job_resource(job_request)
@@ -316,42 +330,60 @@ def files_view():
         err_msg = ("Multipart form 'file' parameter not provided "
                    "or does not contain a file.")
         flask.abort(400, err_msg)
-    oid = ObjectId()
-    filename = base64.urlsafe_b64encode(oid.binary).decode()
-    path = os.path.join(
-        flask.current_app.config['uploads_dir'], filename
+    uploaded_file = save_uploaded_file(
+        file,
+        flask.current_app.config['uploads_dir'],
+        slivka.db.database
     )
-    file.seek(0)
-    file.save(path)
-    insert_one(slivka.db.database, UploadedFile(_id=oid, path=path))
-
-    body = _uploaded_file_resource(filename)
+    body = _uploaded_file_resource(uploaded_file)
     response = jsonify(body)
     response.status_code = 201
     response.headers['Location'] = body["@url"]
     return response
 
 
-@bp.route('/files/<file_id>', endpoint='file', methods=['GET'])
+def save_uploaded_file(file: FileStorage, directory, database):
+    oid = ObjectId()
+    filename = base64.urlsafe_b64encode(oid.binary).decode()
+    save_path = os.path.join(directory, filename)
+    file.seek(0)
+    file.save(save_path)
+    uploaded_file = UploadedFile(_id=oid, title=file.filename, media_type=file.mimetype, path=save_path)
+    insert_one(database, uploaded_file)
+    return uploaded_file
+
+
+@bp.route('/files/<file_id>', endpoint='file', methods=['GET', 'PUT'])
 def file_view(file_id):
-    path = os.path.join(flask.current_app.config['uploads_dir'], file_id)
-    if not os.path.isfile(path):
+    uploaded_file = UploadedFile.find_one(slivka.db.database, id=file_id)
+    if not uploaded_file:
         flask.abort(404)
-    body = _uploaded_file_resource(file_id)
+    if request.method == "PUT":
+        if "label" in request.form:
+            uploaded_file.title = request.form["label"]
+        if "mediaType" in request.form:
+            uploaded_file.media_type = request.form["mediaType"]
+        push_one(slivka.db.database, uploaded_file)
+    body = _uploaded_file_resource(uploaded_file)
     response = jsonify(body)
     response.headers['Location'] = body["@url"]
     return response
 
 
-def _uploaded_file_resource(file_id):
+def _uploaded_file_resource(uploaded_file: UploadedFile):
+    file_id = uploaded_file.b64id
+    uploads_dir = flask.current_app.config["uploads_dir"]
+    path = os.path.relpath(uploaded_file.path, uploads_dir)
+    if os.path.sep == "\\":
+        path = path.replace("\\", "/")
     return {
         "@url": url_for(".file", file_id=file_id),
-        "@content": url_for("media.uploads", file_path=file_id),
+        "@content": url_for("media.uploads", file_path=path),
         "id": file_id,
         "jobId": None,
-        "path": file_id,
-        "label": "uploaded",
-        "mediaType": "",
+        "path": path,
+        "label": uploaded_file.title,
+        "mediaType": uploaded_file.media_type,
     }
 
 

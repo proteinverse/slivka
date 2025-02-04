@@ -1,14 +1,14 @@
+import base64
+import contextlib
+import filecmp
 import io
 import os.path
 import pathlib
 import shutil
-from base64 import urlsafe_b64encode, urlsafe_b64decode
+from base64 import urlsafe_b64decode
 from datetime import datetime
 
 import mongomock
-
-from test.tools import in_any_order
-
 import pytest
 import yaml
 from bson import ObjectId
@@ -19,11 +19,14 @@ from slivka.compat import resources
 from slivka.conf import SlivkaSettings
 from slivka.conf.loaders import load_settings_0_3
 from slivka.db.documents import JobRequest, UploadedFile
-from slivka.db.helpers import delete_one, insert_one, insert_many
+from slivka.db.helpers import delete_one, insert_one, insert_many, delete_many, pull_one
 from slivka.db.repositories import (
     ServiceStatusInfo,
     ServiceStatusMongoDBRepository,
 )
+from test.tools import in_any_order
+
+resources_path = pathlib.Path(__file__).parent / "resources"
 
 
 @pytest.fixture(scope="module")
@@ -756,3 +759,144 @@ def test_job_view_parameters_output_used_as_input(
         response.json["parameters"]["file-param"]
         == f"{completed_job_request.b64id}/stdout"
     )
+
+
+class TestSuccessfulFileUpload:
+    @pytest.fixture(scope="class")
+    def response(self, app_client):
+        return app_client.post(
+            "/api/files",
+            data={"file": (
+                resources.open_binary(__package__, "resources/example.txt"),
+                "example file",
+                "application/x-lipsum"
+            )}
+        )
+
+    def test_status_201(self, response):
+        assert response.status_code == 201
+
+    def test_file_has_title(self, response):
+        assert response.json["label"] == "example file"
+
+    def test_file_has_media_type(self, response):
+        assert response.json["mediaType"] == "application/x-lipsum"
+
+    def test_file_exists_in_uploads(self, response, uploads_directory):
+        uploaded_file_path = os.path.join(uploads_directory, response.json['path'])
+        assert os.path.exists(uploaded_file_path)
+        assert filecmp.cmp(resources_path / "example.txt", uploaded_file_path)
+
+
+def test_file_upload_missing_file_parameter(app_client):
+    response = app_client.post(
+        "/api/files",
+        data={"input": resources.open_binary(__package__, "resources/example.txt")}
+    )
+    assert response.status_code == 400
+
+
+@pytest.mark.parametrize(
+    ("title", "content_type", "expected_title", "expected_media_type"),
+    [
+        ("Title", "application/x-lorem", "Title", "application/x-lorem"),
+        ("Other Title", "text/plain; charset=UTF-8", "Other Title", "text/plain")
+    ]
+)
+class TestUploadJobInput:
+    @pytest.fixture()
+    def input_file_id(self, app_client, title, content_type):
+        response = app_client.post(
+            "/api/services/fake/jobs",
+            data={
+                "text-param": "some text",
+                "file-param": (
+                    resources.open_binary(__package__, "resources/example.txt"),
+                    title,
+                    content_type
+                )
+            }
+        )
+        assert response.status_code == 202
+        return response.json["parameters"]["file-param"]
+
+    @pytest.fixture()
+    def file_response(self, app_client, input_file_id):
+        return app_client.get(f"/api/files/{input_file_id}")
+
+    def test_file_exists(self, file_response, expected_title, expected_media_type):
+        assert file_response.status_code == 200
+
+    def test_file_has_label(self, file_response, expected_title, expected_media_type):
+        assert file_response.json["label"] == expected_title
+
+    def test_file_has_media_type(self, file_response, expected_title, expected_media_type):
+        assert file_response.json["mediaType"] == expected_media_type
+
+    def test_file_has_no_job(self, file_response, expected_title, expected_media_type):
+        assert file_response.json["jobId"] is None
+
+    def test_file_exists_in_uploads(self, uploads_directory, file_response, expected_title, expected_media_type):
+        uploaded_file_path = os.path.join(uploads_directory, file_response.json['path'])
+        assert os.path.exists(uploaded_file_path)
+        assert filecmp.cmp(resources_path / "example.txt", uploaded_file_path)
+
+
+@pytest.fixture(scope="class")
+def add_uploaded_file(uploads_directory, database):
+    added_paths = []
+    added_files = []
+    def add_file(file, title=None, media_type=None):
+        nonlocal added_paths, added_files
+        oid = ObjectId()
+        filename = base64.urlsafe_b64encode(oid.binary).decode()
+        path = os.path.join(uploads_directory, filename)
+        with open(path, "w") as fdst:
+            shutil.copyfileobj(file, fdst)
+        added_paths.append(path)
+        uploaded_file = UploadedFile(_id=oid, title=title, media_type=media_type, path=path)
+        insert_one(database, uploaded_file)
+        added_files.append(uploaded_file)
+        return uploaded_file
+    yield add_file
+    for path in added_paths:
+        with contextlib.suppress(IOError):
+            os.remove(path)
+    delete_many(database, added_files)
+
+
+@pytest.mark.parametrize(
+    "new_data, expected_data",
+    [
+        (
+            {},
+            {"label": "initial title", "mediaType": "text/initial-type"}
+        ),
+        (
+            {"label": "new title"},
+            {"label": "new title", "mediaType": "text/initial-type"}
+        ),
+        (
+            {"mediaType": "text/lorem"},
+            {"label": "initial title", "mediaType": "text/lorem"}
+        ),
+        (
+            {"label": "another title", "mediaType": "text/lipsum"},
+            {"label": "another title", "mediaType": "text/lipsum"}
+        )
+    ]
+)
+def test_update_file_metadata(app_client, database, add_uploaded_file, new_data, expected_data):
+    uploaded_file = add_uploaded_file(
+        resources.open_text(__package__, "resources/example.txt"),
+        title="initial title",
+        media_type="text/initial-type"
+    )
+    reply = app_client.put(f"/api/files/{uploaded_file.b64id}", data=new_data)
+    pull_one(database, uploaded_file)
+    assert reply.status_code == 200
+    assert reply.json["label"] == expected_data["label"]
+    assert reply.json["mediaType"] == expected_data["mediaType"]
+
+    assert uploaded_file.title == expected_data["label"]
+    assert uploaded_file.media_type == expected_data["mediaType"]

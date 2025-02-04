@@ -63,11 +63,3 @@ def test_saved_inputs(database, tmp_path, inputs, expected):
     expected.setdefault("flag")
     expected.setdefault("file")
     assert job_request.inputs == expected
-
-
-def test_file_saved_to_file_system(database, tmp_path):
-    fs = FileStorage(stream=BytesIO(b"text\n"), content_type="text/plain")
-    form = MyForm(MultiDict([("file", fs)]))
-    job_request = form.save(database, tmp_path)
-    with open(job_request.inputs["file"], "rb") as f:
-        assert f.read() == b"text\n"

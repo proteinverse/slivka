@@ -159,8 +159,14 @@ class UploadedFile(MongoDocument):
     def uuid(self):
         return self.b64id
 
-    title = property(lambda self: self['title'])
-    media_type = property(lambda self: self['media_type'])
+    def _get_title(self): return self['title']
+    def _set_title(self, val): self['title'] = val
+    title = property(_get_title, _set_title)
+
+    def _get_media_type(self): return self['media_type']
+    def _set_media_type(self, val): self['media_type'] = val
+    media_type = property(_get_media_type, _set_media_type)
+
     path = property(lambda self: self['path'])
 
     def get_basename(self): return os.path.basename(self['path'])

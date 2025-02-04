@@ -1,5 +1,9 @@
 Changelog:
 
+## [0.8.5b4]
+
+- Added: defining and editing titles and media-types of uploaded files.
+
 ## [0.8.5b3]
 
 - Added: jobs dasboard API where existing jobs can be retrieved.
