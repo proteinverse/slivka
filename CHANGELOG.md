@@ -1,5 +1,11 @@
 Changelog:
 
+## [0.8.5b5]
+
+- Changed: Make datetime objects in job requests timezone-aware. 
+- Added: Migration script that converts datetimes in the database to UTC from
+  local
+
 ## [0.8.5b4]
 
 - Added: defining and editing titles and media-types of uploaded files.
