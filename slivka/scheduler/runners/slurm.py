@@ -55,7 +55,8 @@ def _job_stat():
     stdout = subprocess.check_output(
         ['squeue', '--array', '--format=%i %t', '--noheader', '--states=all',
          '--user=%s' % username],
-        encoding='ascii'
+        encoding='ascii',
+        timeout=60  # if it doesn't return for 1 min, something is broken
     )
     return {
         jid: _status_letters[letter]

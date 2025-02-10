@@ -39,7 +39,8 @@ _status_letters = _StatusLetterDict({
 def _job_stat():
     stdout = subprocess.check_output(
         ['bjobs', '-noheader', '-w'],
-        encoding='ascii'
+        encoding='ascii',
+        timeout=60  # if it doesn't return for 1 min, something is broken
     )
     return {
         jid: _status_letters[letter]

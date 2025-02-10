@@ -53,7 +53,7 @@ atexit.register(_executor.shutdown)
 
 @cached(TTLCache(maxsize=1, ttl=5))
 def _job_stat():
-    stdout = subprocess.check_output('qstat')
+    stdout = subprocess.check_output('qstat', timeout=60)
     return {
         jid: _status_letters[letter]
         for jid, letter in _job_status_regex.findall(stdout)

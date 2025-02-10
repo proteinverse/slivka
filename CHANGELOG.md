@@ -22,6 +22,8 @@ Changelog:
 - Added: migration tool converting old project structure to the new one
 - Changed: ShellRunner spawns a subprocess instead of running the command in a
   default shell which caused issues with some command line tools.
+- Added: 60-seconds timeout to job-status-checking command, to prevent the
+  scheduler from hanging indefinitely on execution system failure.
 
 ## [0.8.4] - 2024-02-05
 
