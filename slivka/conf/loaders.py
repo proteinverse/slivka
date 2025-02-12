@@ -5,7 +5,9 @@ import re
 import typing
 from collections.abc import Sequence
 from typing import List, Dict
+from urllib.parse import quote_plus, urlunsplit, urlencode, urlsplit
 
+from jsonschema.validators import Draft202012Validator
 from packaging.version import parse as parse_version
 
 from slivka.compat import resources
@@ -46,48 +48,11 @@ compatible_config_ver = [
 def load_settings_0_3(config, home=None) -> 'SlivkaSettings':
     home = home or os.getenv('SLIVKA_HOME', os.getcwd())
     home = os.path.realpath(home)
-    version = parse_version(config["version"])
-    if version.base_version not in compatible_config_ver:
-        raise ImproperlyConfigured("Expected config version 0.8")
-    config = flatten_mapping(config)
-    config_schema = json.loads(resources.read_text(
-        "slivka.conf", "settings-schema.json"))
-    try:
-        jsonschema.validate(config, config_schema, Draft7Validator)
-    except jsonschema.ValidationError as e:
-        raise ImproperlyConfigured(
-            'Error in settings file at \'{path}\'. {reason}'.format(
-                path='.'.join(e.path), reason=e.message
-            )
-        )
-    config['directory.home'] = os.path.abspath(home)
-    for key, value in config.items():
-        if key.startswith('directory.'):
-            path = os.path.realpath(os.path.join(home, value))
-            config[key] = path
-
-    service_schema = json.loads(resources.read_text(
-        "slivka.conf", "service-schema.json"))
-    services_dir = config['directory.services']
-    services = config['services'] = []
-    for fn in os.listdir(services_dir):
-        fnmatch = re.match(r'([a-zA-Z0-9_\-.]+)\.service\.ya?ml$', fn)
-        if not fnmatch:
-            continue
-        fn = os.path.join(services_dir, fn)
-        srvc_conf = yaml.load(open(fn), ConfigYamlLoader)
-        try:
-            jsonschema.validate(srvc_conf, service_schema, Draft7Validator)
-        except jsonschema.ValidationError as e:
-            raise ImproperlyConfigured(
-                'Error in file "{file}" at \'{path}\'. {reason}'.format(
-                    file=fn, path='/'.join(map(str, e.path)), reason=e.message
-                )
-            )
-        srvc_conf['id'] = fnmatch.group(1)
-        services.append(srvc_conf)
-    config = unflatten_mapping(config)
-    return _deserialize(SlivkaSettings, config)
+    loader = SettingsLoader_0_8_5b5()
+    loader.read_dict({"directory.home": home})
+    loader.read_dict(config)
+    loader.read_env(os.environ)
+    return loader.build()
 
 
 def load_settings_0_8(config, home=None):
@@ -115,7 +80,7 @@ def _deserialize(cls, obj):
                 continue
             if attribute.type is not None:
                 kwargs[key] = _deserialize(attribute.type, val)
-        return cls(**kwargs)
+        return cls(**{k: v for k, v in kwargs.items() if k in fields})
     if get_origin(cls) is None:
         return obj
     if issubclass(get_origin(cls), typing.Sequence):
@@ -138,6 +103,144 @@ def _deserialize(cls, obj):
                 val.setdefault('id', key)
         return {key: _deserialize(cls, val) for key, val in obj.items()}
     return obj
+
+
+class SettingsLoader_0_8_5b5:
+    def __init__(self):
+        self._chain_map = collections.ChainMap()
+        self._settings_schema = json.load(
+            resources.open_text("slivka.conf", "partial-settings-schema.json")
+        )
+
+    def _prepend_config(self, dictionary):
+        try:
+            jsonschema.validate(dictionary, self._settings_schema, Draft202012Validator)
+        except jsonschema.ValidationError as e:
+            raise ImproperlyConfigured(
+                f"Settings error at '{'.'.join(e.path)}'. {e.message}"
+            )
+        if "mongodb.host" in dictionary or "mongodb.socket" in dictionary or "mongodb.uri" in dictionary:
+            mongo_uri, mongo_database = self._parse_mongodb_config(dictionary)
+            dictionary["mongodb.uri"] = mongo_uri
+            dictionary["mongodb.database"] = mongo_database
+        self._chain_map.maps.insert(0, dictionary)
+
+    def read_dict(self, dictionary):
+        self._prepend_config(flatten_mapping(dictionary))
+
+    def read_yaml(self, path):
+        with open(path) as f:
+            dictionary = yaml.safe_load(f)
+        dictionary["settings-file"] = str(path)
+        version = parse_version(dictionary["version"])
+        if version.base_version not in compatible_config_ver:
+            raise ImproperlyConfigured(
+                f"File {path} is not compatible with this slivka version."
+            )
+        self.read_dict(dictionary)
+
+    def read_env(self, env):
+        config = {
+            config_prop: env[var_name]
+            for var_name, config_prop in [
+                ("SLIVKA_HOME", "directory.home"),
+                ("SLIVKA_SERVER_PREFIX", "server.prefix"),
+                ("SLIVKA_SERVER_HOST", "server.host"),
+                ("SLIVKA_LOCAL_QUEUE_HOST", "local-queue.host"),
+                ("SLIVKA_MONGODB_HOST", "mongodb.host"),
+                ("SLIVKA_MONGODB_SOCKET", "mongodb.socket"),
+                ("SLIVKA_MONGODB_USERNAME", "mongodb.username"),
+                ("SLIVKA_MONGODB_PASSWORD", "mongodb.password"),
+                ("SLIVKA_MONGODB_QUERY", "mongodb.query"),
+                ("SLIVKA_MONGODB_DATABASE", "mongodb.database"),
+                ("SLIVKA_MONGODB_URI", "mongodb.uri"),
+            ]
+            if var_name in env
+        }
+        self._prepend_config(config)
+
+    @staticmethod
+    def _parse_mongodb_config(dictionary):
+        if "mongodb.uri" in dictionary:
+            connection_uri = dictionary["mongodb.uri"]
+            if "mongodb.database" in dictionary:
+                database = dictionary["mongodb.database"]
+            else:
+                split_result = urlsplit(dictionary["mongodb.uri"])
+                database = split_result.path.lstrip("/")
+        else:
+            options = {
+                key.rsplit('.', 1)[-1]: val for key, val in dictionary.items()
+                if key.startswith("mongodb.options.")
+            }
+            connection_uri = _build_mongodb_uri(
+                hostname=dictionary.get("mongodb.host"),
+                socket=dictionary.get("mongodb.socket"),
+                username=dictionary.get("mongodb.username"),
+                password=dictionary.get("mongodb.password"),
+                database=dictionary.get("mongodb.database"),
+                query=dictionary.get("mongodb.query"),
+                options=options
+            )
+            database = dictionary["mongodb.database"]
+        return connection_uri, database
+
+    def build(self) -> 'SlivkaSettings':
+        config = self._chain_map
+        home = os.path.realpath(config["directory.home"])
+        for key, value in config.items():
+            if key.startswith("directory."):
+                config[key] = os.path.realpath(os.path.join(home, value))
+
+        service_schema = json.load(resources.open_text(
+            "slivka.conf", "service-schema.json"
+        ))
+        services_dir = config["directory.services"]
+        services = config['services'] = []
+        for fn in os.listdir(services_dir):
+            fnmatch = re.match(r'([a-zA-Z0-9_\-.]+)\.service\.ya?ml$', fn)
+            if not fnmatch:
+                continue
+            fn = os.path.join(services_dir, fn)
+            srvc_conf = yaml.load(open(fn), ConfigYamlLoader)
+            try:
+                jsonschema.validate(srvc_conf, service_schema, Draft7Validator)
+            except jsonschema.ValidationError as e:
+                raise ImproperlyConfigured(
+                    'Error in file "{file}" at \'{path}\'. {reason}'.format(
+                        file=fn, path='/'.join(map(str, e.path)), reason=e.message
+                    )
+                )
+            srvc_conf['id'] = fnmatch.group(1)
+            services.append(srvc_conf)
+        config = unflatten_mapping(config)
+        return _deserialize(SlivkaSettings, config)
+
+
+def _build_mongodb_uri(
+        scheme="mongodb",
+        hostname=None,
+        socket=None,
+        username=None,
+        password=None,
+        database="",
+        query=None,
+        options=None,
+):
+    authority = ""
+    if username is not None and password is not None:
+        authority = f"{quote_plus(username)}:{quote_plus(password)}@"
+    elif username is not None:
+        authority = f"{quote_plus(username)}@"
+    if socket is not None:
+        authority += quote_plus(socket)
+    elif hostname is not None:
+        authority += hostname
+    else:
+        raise ValueError("Either a 'host' or a 'socket' must be set.")
+    if not query and options:
+        query = urlencode(options)
+    return urlunsplit((scheme, authority, database, query, ""))
 
 
 def _parameters_converter(parameters: dict):
@@ -233,14 +336,11 @@ class SlivkaSettings:
 
     @attrs
     class MongoDB:
-        host = attrib(default=None)
-        socket = attrib(default=None)
-        username = attrib(default=None)
-        password = attrib(default=None)
+        uri = attrib()
         database = attrib(default="slivka")
 
-    settings_file = attrib(default=None, init=False)
-    version = attrib(type=str)
+    settings_file = attrib(default=None)
+    version = attrib(type=str, default=None)
     directory = attrib(type=Directory)
     server = attrib(type=Server)
     local_queue = attrib(type=LocalQueue)
