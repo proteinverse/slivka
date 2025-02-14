@@ -14,27 +14,22 @@
       "type": "string"
     },
     "directory.uploads": {
-      "type": "string",
-      "default": "./uploads"
+      "type": "string"
     },
     "directory.jobs": {
-      "type": "string",
-      "default": "./jobs"
+      "type": "string"
     },
     "directory.logs": {
-      "type": "string",
-      "default": "./logs"
+      "type": "string"
     },
     "directory.services": {
-      "type": "string",
-      "default": "./services"
+      "type": "string"
     },
     "server.prefix": {
       "type": "string"
     },
     "server.host": {
-      "type": "string",
-      "default": "127.0.0.1:4040"
+      "type": "string"
     },
     "server.uploads-path": {
       "type": "string"
@@ -43,12 +38,10 @@
       "type": "string"
     },
     "local-queue.host": {
-      "type": "string",
-      "default": "127.0.0.1:4041"
+      "type": "string"
     },
     "mongodb.host": {
-      "type": "string",
-      "default": "127.0.0.1:27017"
+      "type": "string"
     },
     "mongodb.socket": {
       "type": "string"
