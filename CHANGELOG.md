@@ -1,5 +1,9 @@
 Changelog:
 
+## [0.8.5b4] - (upcoming)
+
+- Added: `slivka validate` command for checking the settings files.
+
 ## [0.8.5] - (upcoming)
 
 - Added: support for Python 3.11, 3.12 and 3.13
