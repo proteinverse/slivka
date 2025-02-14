@@ -15,6 +15,7 @@ import slivka.migrations.cli
 from slivka.__about__ import __version__
 from slivka.compat.contextlib import nullcontext
 from slivka.consts import ServiceStatus
+from slivka.scheduler.factory import runners_from_config
 from slivka.utils.daemon import DummyDaemonContext
 
 
@@ -289,6 +290,19 @@ def test_services(services):
             click.echo(
                 "".join(traceback.format_exception(outcome.cause)), nl=False
             )
+
+
+@main.command('validate')
+@click.option('--home', '-h', type=click.Path())
+def validate(home):
+    if home is None:
+        home = os.getenv("SLIVKA_HOME", os.getcwd())
+    os.environ["SLIVKA_HOME"] = os.path.realpath(home)
+    from slivka.conf import settings
+    os.environ.setdefault("SLIVKA_HOME", settings.directory.home)
+    sys.path.append(settings.directory.home)
+    for service in settings.services:
+        runners_from_config(service)
 
 
 main.add_command(slivka.migrations.cli.migrate)

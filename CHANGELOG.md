@@ -3,6 +3,8 @@ Changelog:
 ## [0.8.5b4]
 
 - Added: defining and editing titles and media-types of uploaded files.
+- Added: `slivka validate` command for checking the settings files.
+- Added: settings can be loaded from environment variables
 
 ## [0.8.5b3]
 

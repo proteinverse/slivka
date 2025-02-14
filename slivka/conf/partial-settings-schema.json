@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema#",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+(\\.\\d+){1,2}(b\\d+)?$",
+      "anyOf": [
+        {"const": "0.3"},
+        {"pattern": "^0\\.8(\\.[0-5])?(b\\d+)?$"}
+      ]
+    },
+    "directory.home": {
+      "type": "string"
+    },
+    "directory.uploads": {
+      "type": "string"
+    },
+    "directory.jobs": {
+      "type": "string"
+    },
+    "directory.logs": {
+      "type": "string"
+    },
+    "directory.services": {
+      "type": "string"
+    },
+    "server.prefix": {
+      "type": "string"
+    },
+    "server.host": {
+      "type": "string"
+    },
+    "server.uploads-path": {
+      "type": "string"
+    },
+    "server.jobs-path": {
+      "type": "string"
+    },
+    "local-queue.host": {
+      "type": "string"
+    },
+    "mongodb.host": {
+      "type": "string"
+    },
+    "mongodb.socket": {
+      "type": "string"
+    },
+    "mongodb.uri": {
+      "type": "string"
+    },
+    "mongodb.database": {
+      "type": "string"
+    }
+  },
+  "dependentSchemas": {
+    "mongodb.host": {
+      "not": {
+        "anyOf": [
+          {"required": ["mongodb.socket"]},
+          {"required": ["mongodb.uri"]}
+        ]
+      },
+      "properties": {
+        "mongodb.username": {"type": "string"},
+        "mongodb.password": {"type": "string"},
+        "mongodb.query": {"type":  "string"},
+        "mongodb.options": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        }
+      },
+      "required": ["mongodb.database"]
+    },
+    "mongodb.socket": {
+      "not": {
+        "anyOf": [
+          {"required": ["mongodb.host"]},
+          {"required": ["mongodb.uri"]}
+        ]
+      },
+      "properties": {
+        "mongodb.username": {"type": "string"},
+        "mongodb.password": {"type": "string"},
+        "mongodb.query": {"type":  "string"},
+        "mongodb.options": {
+          "type": "object",
+          "additionalProperties": {"type": "string"}
+        }
+      },
+      "required": ["mongodb.database"]
+    },
+    "mongodb.uri": {
+      "not": {
+        "anyOf": [
+          {"required": ["mongodb.host"]},
+          {"required": ["mongodb.socket"]}
+        ]
+      }
+    }
+  },
+  "unevaluatedProperties": false
+}
