@@ -2,56 +2,56 @@ import os
 import sys
 from types import ModuleType
 
-import yaml
-
 from slivka.utils import cached_property
 from . import loaders
-from .loaders import ServiceConfig, SlivkaSettings
+from .loaders import ServiceConfig, SlivkaSettings, SettingsLoader_0_8_5b5
 
 
 def _load():
     home = os.getenv("SLIVKA_HOME", os.getcwd())
+    loader = SettingsLoader_0_8_5b5()
+    loader.read_dict({"directory.home": home})
     files = ['settings.yaml', 'settings.yml', 'config.yaml', 'config.yml']
     files = (os.path.join(home, fn) for fn in files)
     try:
         file = next(filter(os.path.isfile, files))
-        return _load_file(file)
+        loader.read_yaml(file)
     except StopIteration:
         raise loaders.ImproperlyConfigured(
             'Settings file not found in %s. Check if SLIVKA_HOME environment '
             'variable is set correctly and the directory contains '
             'settings.yaml or config.yaml.' % home
         ) from None
+    loader.read_env(os.environ)
+    return loader.build()
 
 
-def _load_file(fp):
-    file_name = None
-    if isinstance(fp, str):
-        file_name = fp
-        fp = open(fp)
-    config = _load_dict(yaml.safe_load(fp))
-    config.settings_file = file_name
-    return config
-
-
-def _load_dict(config):
-    conf = loaders.load_settings_0_3(config)
+def bootstrap(conf: SlivkaSettings):
     os.makedirs(conf.directory.jobs, exist_ok=True)
     os.makedirs(conf.directory.logs, exist_ok=True)
     os.makedirs(conf.directory.uploads, exist_ok=True)
-    return conf
 
 
 class _ConfModule(ModuleType):
     @cached_property
     def settings(self):
-        return _load()
+        conf = _load()
+        bootstrap(conf)
+        return conf
 
     def load_file(self, fp):
-        self.settings = _load_file(fp)
+        loader = SettingsLoader_0_8_5b5()
+        loader.read_yaml(fp)
+        conf = loader.build()
+        bootstrap(conf)
+        self.settings = conf
 
     def load_dict(self, config):
-        self.settings = _load_dict(config)
+        loader = SettingsLoader_0_8_5b5()
+        loader.read_dict(config)
+        conf = loader.build()
+        bootstrap(conf)
+        self.settings = conf
 
 
 settings: loaders.SlivkaSettings
