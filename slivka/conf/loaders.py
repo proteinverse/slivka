@@ -144,6 +144,8 @@ class SettingsLoader_0_8_5b5:
             config_prop: env[var_name]
             for var_name, config_prop in [
                 ("SLIVKA_HOME", "directory.home"),
+                ("SLIVKA_DIR_UPLOADS", "directory.uploads"),
+                ("SLIVKA_DIR_JOBS", "directory.uploads"),
                 ("SLIVKA_SERVER_PREFIX", "server.prefix"),
                 ("SLIVKA_SERVER_HOST", "server.host"),
                 ("SLIVKA_LOCAL_QUEUE_HOST", "local-queue.host"),
