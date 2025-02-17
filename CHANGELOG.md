@@ -1,5 +1,9 @@
 Changelog:
 
+## [0.8.5b4]
+
+- Added: settings can be loaded from environment variables
+
 ## [0.8.5] - (upcoming)
 
 - Added: support for Python 3.11, 3.12 and 3.13
