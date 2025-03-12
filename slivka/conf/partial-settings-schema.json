@@ -2,6 +2,9 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema#",
   "type": "object",
   "properties": {
+    "settings-file": {
+      "type": "string"
+    },
     "version": {
       "type": "string",
       "pattern": "^\\d+(\\.\\d+){1,2}(b\\d+)?$",
