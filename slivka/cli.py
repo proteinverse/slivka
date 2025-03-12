@@ -247,8 +247,9 @@ def start_shell():
 
 
 @main.command('test-services')
+@click.option("--keep-output/--no-keep-output", default=False)
 @click.argument('services', nargs=-1)
-def test_services(services):
+def test_services(services, keep_output):
     home = os.getenv('SLIVKA_HOME', os.getcwd())
     os.environ['SLIVKA_HOME'] = os.path.abspath(home)
     from slivka.conf import settings
@@ -275,7 +276,7 @@ def test_services(services):
             for test_conf in service_config.tests
             if runner.name in test_conf.applicable_runners
         )
-    for test, outcome in service_monitor.run_all_tests():
+    for test, outcome in service_monitor.run_all_tests(keep_output=keep_output):
         status_text = (
             click.style("[OK]  ", fg="green")
             if outcome.status == ServiceStatus.OK

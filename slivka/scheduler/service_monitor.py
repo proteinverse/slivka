@@ -1,9 +1,12 @@
+import shutil
+import sys
+import tempfile
 import threading
 import time
+import traceback
 from collections import namedtuple
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
-from tempfile import TemporaryDirectory
 from typing import Iterator, List, Tuple
 
 import pymongo.errors
@@ -147,11 +150,11 @@ class ServiceTestExecutorThread(threading.Thread):
                     self._repository.insert(info)
             self._finished.wait(self._interval)
 
-    def run_tests(self, tests) -> Iterator[Tuple[ServiceTest, ServiceTestOutcome]]:
+    def run_tests(self, tests, keep_output=False) -> Iterator[Tuple[ServiceTest, ServiceTestOutcome]]:
         if not tests:
             return
         with ThreadPoolExecutor(max_workers=4) as executor:
-            outcomes = executor.map(_run_with_tempdir(self._dir), tests)
+            outcomes = executor.map(_run_with_tempdir(self._dir, delete=not keep_output), tests)
             tests_iter = iter(tests)
             while True:
                 try:
@@ -167,8 +170,8 @@ class ServiceTestExecutorThread(threading.Thread):
                 test = next(tests_iter)
                 yield test, outcome
 
-    def run_all_tests(self) -> Iterator[Tuple[ServiceTest, ServiceTestOutcome]]:
-        yield from self.run_tests(self._tests)
+    def run_all_tests(self, keep_output=False) -> Iterator[Tuple[ServiceTest, ServiceTestOutcome]]:
+        yield from self.run_tests(self._tests, keep_output=keep_output)
 
     def shutdown(self):
         self._finished.set()
@@ -176,9 +179,22 @@ class ServiceTestExecutorThread(threading.Thread):
             test.interrupt()
 
 
-def _run_with_tempdir(parent_dir):
+def _run_with_tempdir(parent_dir, delete=True):
+    def onerror(func, path, exc_info):
+        exc_type, exc, tb = exc_info
+        if issubclass(exc_type, FileNotFoundError):
+            pass
+        else:
+            exception_string = traceback.format_exception_only(exc_type, exc)[-1].rstrip('\n')
+            print(f"Unable to remove '{path}'. {exception_string}", file=sys.stderr)
+
     def wrapper(test: ServiceTest):
-        with TemporaryDirectory(prefix="test-", dir=parent_dir) as temp_dir:
+        temp_dir = tempfile.mkdtemp(prefix="test-", dir=parent_dir)
+        try:
             return test.run(temp_dir)
+        finally:
+            if delete:
+                shutil.rmtree(temp_dir, onerror=onerror)
+
 
     return wrapper
