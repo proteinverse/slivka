@@ -23,7 +23,7 @@ setup(
         "frozendict>=1.2",
         "jsonschema>=3.0",
         "MarkupSafe>=1.0",
-        "pymongo>=3.7",
+        "pymongo>=3.7,<4.9",
         "python-daemon>=3.0",
         "python-dateutil>=2.8",
         "PyYAML>=5.4",
