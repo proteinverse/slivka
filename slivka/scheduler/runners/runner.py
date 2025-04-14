@@ -174,8 +174,13 @@ class Runner:
         """
         self._prepare_job(inputs, cwd)
         cmd = self.command + self.build_args(inputs)
-        log.info('%s starting command "%s" in %s',
-                 self.__class__.__name__, ' '.join(map(repr, cmd)), cwd)
+        cmd_string = ' '.join(shlex.quote(str(arg)) for arg in cmd)
+        with open(os.path.join(cwd, ".command"), 'w') as f:
+            f.write(cmd_string + "\n")
+        log.info(
+            '%s starting command "%s" in %s',
+            self.__class__.__name__, cmd_string, cwd
+        )
         return self.submit(Command(cmd, cwd))
 
     def batch_start(self, inputs: List[dict], cwds: List[str]) -> Sequence[Job]:
@@ -195,9 +200,13 @@ class Runner:
             cmds.append(cmd)
         if log.isEnabledFor(logging.INFO):
             for i, cmd, cwd in zip(itertools.count(1), cmds, cwds):
-                log.info('%s starting command "%s" in %s (%d of %d)',
-                         self.__class__.__name__, ' '.join(map(repr, cmd)),
-                         cwd, i, len(cmds))
+                cmd_string = ' '.join(shlex.quote(str(arg)) for arg in cmd)
+                with open(os.path.join(cwd, ".command"), 'w') as f:
+                    f.write(cmd_string + "\n")
+                log.info(
+                    '%s starting command "%s" in %s (%d of %d)',
+                    self.__class__.__name__, cmd_string, cwd, i, len(cmds)
+                )
         return self.batch_submit(list(map(Command._make, zip(cmds, cwds))))
 
     def submit(self, command: Command) -> Job:
