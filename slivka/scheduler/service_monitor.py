@@ -1,3 +1,4 @@
+import logging
 import shutil
 import sys
 import tempfile
@@ -40,12 +41,14 @@ class ServiceTest:
         self.interval = interval
         self._interrupt = threading.Event()
         self.last_started = float("-inf")
+        self.logger = logging.getLogger(__name__)
 
     @property
     def runner(self):
         return self._runner
 
     def run(self, dir_name) -> ServiceTestOutcome:
+        self.logger.info(f"Started test for {self.runner}.")
         self.last_started = time.monotonic()
         if self._interrupt.is_set():
             return ServiceTestOutcome(
