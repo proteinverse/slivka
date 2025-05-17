@@ -53,8 +53,15 @@ username = pwd.getpwuid(os.getuid()).pw_name
 @cached(TTLCache(maxsize=1, ttl=5))
 def _job_stat():
     stdout = subprocess.check_output(
-        ['squeue', '--array', '--format=%i %t', '--noheader', '--states=all',
-         '--user=%s' % username],
+        [
+            'squeue',
+            '--array',
+            '--all',
+            '--format=%i %t',
+            '--noheader',
+            '--states=all',
+            '--user=%s' % username
+        ],
         encoding='ascii',
         timeout=60  # if it doesn't return for 1 min, something is broken
     )
