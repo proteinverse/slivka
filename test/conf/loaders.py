@@ -31,6 +31,140 @@ def test_conf_directory_real_path(tmp_path, minimal_settings):
     assert conf.directory.logs == str(real_home / 'log')
     assert conf.directory.services == str(real_home/ 'services')
 
+@pytest.mark.parametrize(
+    ("settings_dict", "expected_uri"),
+    [
+        pytest.param(
+            {
+                "mongodb.host": "dev.example.com:27017/",
+                "mongodb.database": "testdb"
+            },
+            "mongodb://dev.example.com:27017/",
+            id="basic host"
+        ),
+        pytest.param(
+            {
+                "mongodb.host": "dev01.example.com,dev02.example.com/",
+                "mongodb.database": "testdb"
+            },
+            "mongodb://dev01.example.com,dev02.example.com/",
+            id="hosts set"
+        ),
+        pytest.param(
+            {
+                "mongodb.host": "dev.example.com/",
+                "mongodb.username": "slivkauser",
+                "mongodb.password": "p455w0rd",
+                "mongodb.database": "testdb"
+            },
+            "mongodb://slivkauser:p455w0rd@dev.example.com/",
+            id="credentials"
+        ),
+        pytest.param(
+            {
+                "mongodb.host": "example.com",
+                "mongodb.username": "slivka user",
+                "mongodb.database": "testdb"
+            },
+            "mongodb://slivka+user@example.com",
+            id="quote-plus space"
+        ),
+        pytest.param(
+            {
+                "mongodb.host": "example.com",
+                "mongodb.username": "slivka+user",
+                "mongodb.database": "testdb"
+            },
+            "mongodb://slivka%2Buser@example.com",
+            id="%-encode username"
+        ),
+        pytest.param(
+            {
+                "mongodb.host": "example.com",
+                "mongodb.username": "slivka",
+                "mongodb.password": "=&D$_*",
+                "mongodb.database": "testdb"
+            },
+            "mongodb://slivka:%3D%26D%24_%2A@example.com",
+            id="%-encode password"
+        ),
+        pytest.param(
+            {
+                "mongodb.host": "dev.example.com/admin",
+                "mongodb.database": "testdb"
+            },
+            "mongodb://dev.example.com/admin",
+            id="default authdb"
+        ),
+        pytest.param(
+            {
+                "mongodb.host": "dev.example.com/admin",
+                "mongodb.query": "authSource=notadmin",
+                "mongodb.database": "testdb"
+            },
+            "mongodb://dev.example.com/admin?authSource=notadmin",
+            id="default authdb and authSource"
+        ),
+        pytest.param(
+            {
+                "mongodb.host": "dev01.host.com:27017,dev02.host.com:27017,dev03.host.com:27017/",
+                "mongodb.username": "slivkauser",
+                "mongodb.password": 'p455w0rd',
+                "mongodb.database": "testdb",
+                "mongodb.query": "replicaSet=rsDev&authSource=admin"
+            },
+            "mongodb://slivkauser:p455w0rd@dev01.host.com:27017,dev02.host.com:27017,dev03.host.com:27017/?replicaSet=rsDev&authSource=admin",
+            id="credentials and replica set"
+        ),
+        pytest.param(
+            {
+                "mongodb.host": "dev.example.com/",
+                "mongodb.query": "tlsCAFile=%2Fhome%2Fweb%2Ftls%2Fcert.crt",
+                "mongodb.database": "testdb"
+            },
+            "mongodb://dev.example.com/?tlsCAFile=%2Fhome%2Fweb%2Ftls%2Fcert.crt",
+            id="urlencoded query"
+        ),
+        pytest.param(
+            {
+                "mongodb.host": "dev.example.com:27017/",
+                "mongodb.options": {
+                    "replicaSet": "rs_dev",
+                    "authSource": "admin",
+                    "tlsCAFile": "/home/web/tls/cert.crt"
+                },
+                "mongodb.database": "testdb"
+            },
+            "mongodb://dev.example.com:27017/?replicaSet=rs_dev&authSource=admin&tlsCAFile=%2Fhome%2Fweb%2Ftls%2Fcert.crt",
+            id="options"
+        ),
+        pytest.param(
+            {
+                "mongodb.host": "dev.example.com/",
+                "mongodb.query": "compressors=zlib&zlibCompressionLevel=5",
+                "mongodb.options": {"authSource": "admin", "replicaSet": "rs_dev"},
+                "mongodb.database": "testdb"
+            },
+            "mongodb://dev.example.com/?compressors=zlib&zlibCompressionLevel=5&authSource=admin&replicaSet=rs_dev",
+            id="query and options"
+        )
+    ]
+)
+def test_settings_loader_mongodb_uri(
+        tmp_path,
+        minimal_settings,
+        settings_dict,
+        expected_uri
+):
+    home = tmp_path
+    os.mkdir(home / "services")
+    loader = SettingsLoader_0_8_5b5()
+    loader.read_dict(minimal_settings)
+    loader.read_dict(settings_dict)
+    loader.read_dict({"directory.home": str(home)})
+    settings = loader.build()
+    assert settings.mongodb.uri == expected_uri
+
 
 @pytest.mark.parametrize(
     ("environ", "expected_settings"),
