@@ -64,6 +64,8 @@ class LSFRunner(Runner):
     def submit(self, command: Command) -> Job:
         cmd = str.join(' ', map(bash_quote, command.args))
         input_script = _runner_bash_tpl.format(cmd=cmd)
+        with open(os.path.join(command.cwd, '.lsf.command'), 'w') as f:
+            f.write(input_script)
         proc = subprocess.run(
             # NB unlike other runners, the "stdout" file gets redirected by the job
             # script because LSF normally writes a "job report" to stdout, and there

@@ -87,6 +87,8 @@ class SlurmRunner(Runner):
     def submit(self, command: Command) -> Job:
         cmd = str.join(' ', map(bash_quote, command.args))
         input_script = _runner_bash_tpl.format(cmd=cmd)
+        with open(os.path.join(command.cwd, '.slurm.command'), 'w') as f:
+            f.write(input_script)
         proc = subprocess.run(
             ['sbatch', '--output=stdout', '--error=stderr', '--parsable',
              *self.sbatch_args],

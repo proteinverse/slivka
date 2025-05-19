@@ -87,7 +87,7 @@ class GridEngineRunner(Runner):
         are written to the stdout and stderr files in the job working
         directory.
         """
-        fd, path = tempfile.mkstemp(prefix='run', suffix='.sh', dir=command.cwd)
+        fd, path = tempfile.mkstemp(prefix='.', suffix='.sge.command', dir=command.cwd)
         cmd = str.join(' ', map(shlex.quote, command.args))
         with open(fd, 'w') as f:
             f.write(_runner_sh_tpl.format(cmd=cmd))
