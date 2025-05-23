@@ -180,7 +180,6 @@ class SettingsLoader_0_8_5b5:
                 socket=dictionary.get("mongodb.socket"),
                 username=dictionary.get("mongodb.username"),
                 password=dictionary.get("mongodb.password"),
-                database=dictionary.get("mongodb.database"),
                 query=dictionary.get("mongodb.query"),
                 options=options
             )
@@ -225,7 +224,6 @@ def _build_mongodb_uri(
         socket=None,
         username=None,
         password=None,
-        database="",
         query=None,
         options=None,
 ):
@@ -242,7 +240,7 @@ def _build_mongodb_uri(
         raise ValueError("Either a 'host' or a 'socket' must be set.")
     if not query and options:
         query = urlencode(options)
-    return urlunsplit((scheme, authority, database, query, ""))
+    return urlunsplit((scheme, authority, "", query, ""))
 
 
 def _parameters_converter(parameters: dict):
