@@ -147,6 +147,46 @@ def test_conf_directory_real_path(tmp_path, minimal_settings):
             },
             "mongodb://dev.example.com/?compressors=zlib&zlibCompressionLevel=5&authSource=admin&replicaSet=rs_dev",
             id="query and options"
+        ),
+        # The following tests are for backwards compatibility
+        # Using query params in "host" option is deprecated and will be removed
+        pytest.param(
+            {
+                "mongodb.host": "dev.example.com/?authSource=admin",
+                "mongodb.database": "testdb"
+            },
+            "mongodb://dev.example.com/?authSource=admin",
+            id="query params in hostname"
+        ),
+        pytest.param(
+            {
+                "mongodb.host": "dev.example.com/?replicaSet=rs_dev&authSource=admin",
+                "mongodb.query": "compressors=zlib&zlibCompressionLevel=5",
+                "mongodb.database": "testdb"
+            },
+            "mongodb://dev.example.com/?"
+            "replicaSet=rs_dev&authSource=admin&compressors=zlib"
+            "&zlibCompressionLevel=5",
+            id="query in hostname and query"
+        ),
+        pytest.param(
+            {
+                "mongodb.host": "dev.example.com/?replicaSet=rs_dev&authSource=admin",
+                "mongodb.options": {"compressors": "zlib", "zlibCompressionLevel": "5"},
+                "mongodb.database": "testdb"
+            },
+            "mongodb://dev.example.com/?replicaSet=rs_dev&authSource=admin&"
+            "compressors=zlib&zlibCompressionLevel=5",
+            id="query in hostname and options"
+        ),
+        pytest.param(
+            {
+                "mongodb.host": "dev.example.com/?",
+                "mongodb.query": "authSource=admin",
+                "mongodb.database": "testdb"
+            },
+            "mongodb://dev.example.com/?authSource=admin",
+            id="empty query in hostname"
         )
     ]
 )
@@ -164,6 +204,21 @@ def test_settings_loader_mongodb_uri(
     loader.read_dict({"directory.home": str(home)})
     settings = loader.build()
     assert settings.mongodb.uri == expected_uri
+
+
+def test_settings_loader_query_in_mongodb_host_gives_future_warning(
+        tmp_path,
+        minimal_settings,
+):
+    home = tmp_path
+    os.mkdir(home / "services")
+    loader = SettingsLoader_0_8_5b5()
+    loader.read_dict(minimal_settings)
+    with pytest.warns(FutureWarning):
+        loader.read_dict({
+            "mongodb.host": "dev.example.com/?replicaSet=rs_dev&authSource=admin",
+            "mongodb.database": "testdb"
+        })
 
 
 @pytest.mark.parametrize(

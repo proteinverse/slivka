@@ -3,6 +3,7 @@ import json
 import os.path
 import re
 import typing
+import warnings
 from collections.abc import Sequence
 from typing import List, Dict
 from urllib.parse import quote_plus, urlunsplit, urlencode, urlsplit
@@ -227,6 +228,16 @@ def _build_mongodb_uri(
         query=None,
         options=None,
 ):
+    if "?" in hostname:
+        hostname, host_query = hostname.split("?", 1)
+        query = (f"{host_query}&{query}"
+                 if (query and host_query)
+                 else (query or host_query))
+        warnings.warn(
+            "Using query parameters in the host name will be removed in the future. "
+            "Use \"mongodb.query\" or \"mongodb.options\" to set query parameters instead.",
+            FutureWarning
+        )
     authority = ""
     if username is not None and password is not None:
         authority = f"{quote_plus(username)}:{quote_plus(password)}@"
