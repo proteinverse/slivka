@@ -214,13 +214,13 @@ ConfigYamlLoader.add_constructor(
 
 def flatten_mapping(mapping):
     result = {
-        k.lower() + '.' + kn: vn
+        k + '.' + kn: vn
         for k, v in mapping.items()
         if isinstance(v, dict)
         for kn, vn in flatten_mapping(v).items()
     }
     result.update(
-        (k.lower(), v) for (k, v) in mapping.items()
+        (k, v) for (k, v) in mapping.items()
         if not isinstance(v, dict)
     )
     return result
