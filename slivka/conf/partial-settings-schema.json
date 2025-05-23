@@ -67,11 +67,10 @@
       "properties": {
         "mongodb.username": {"type": "string"},
         "mongodb.password": {"type": "string"},
-        "mongodb.query": {"type":  "string"},
-        "mongodb.options": {
-          "type": "object",
-          "additionalProperties": {"type": "string"}
-        }
+        "mongodb.query": {"type":  "string"}
+      },
+      "patternProperties": {
+        "^mongodb.options.": {"type": "string"}
       },
       "required": ["mongodb.database"]
     },
@@ -85,11 +84,10 @@
       "properties": {
         "mongodb.username": {"type": "string"},
         "mongodb.password": {"type": "string"},
-        "mongodb.query": {"type":  "string"},
-        "mongodb.options": {
-          "type": "object",
-          "additionalProperties": {"type": "string"}
-        }
+        "mongodb.query": {"type":  "string"}
+      },
+      "patternProperties": {
+        "^mongodb.options.": {"type": "string"}
       },
       "required": ["mongodb.database"]
     },
