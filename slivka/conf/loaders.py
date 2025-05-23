@@ -238,8 +238,11 @@ def _build_mongodb_uri(
         authority += hostname
     else:
         raise ValueError("Either a 'host' or a 'socket' must be set.")
-    if not query and options:
-        query = urlencode(options)
+    if options:
+        if query:
+            query = f"{query}&{urlencode(options)}"
+        else:
+            query = urlencode(options)
     return urlunsplit((scheme, authority, "", query, ""))
 
 
