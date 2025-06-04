@@ -228,7 +228,8 @@ def _build_mongodb_uri(
         query=None,
         options=None,
 ):
-    if "?" in hostname:
+    # >>> For backwards compatibility, will be removed in the future
+    if hostname and "?" in hostname:
         hostname, host_query = hostname.split("?", 1)
         query = (f"{host_query}&{query}"
                  if (query and host_query)
@@ -238,6 +239,17 @@ def _build_mongodb_uri(
             "Use \"mongodb.query\" or \"mongodb.options\" to set query parameters instead.",
             FutureWarning
         )
+    if socket and "?" in socket:
+        socket, socket_query = socket.split("?", 1)
+        query = (f"{socket_query}&{query}"
+                 if (query and socket_query)
+                 else (query or socket_query))
+        warnings.warn(
+            "Using query parameters in the socket name will be removed in the future. "
+            "Use \"mongodb.query\" or \"mongodb.options\" to set query parameters instead.",
+            FutureWarning
+        )
+    # <<<
     authority = ""
     if username is not None and password is not None:
         authority = f"{quote_plus(username)}:{quote_plus(password)}@"
