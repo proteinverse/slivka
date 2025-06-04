@@ -138,7 +138,7 @@ def test_job_request_insert_id_not_present(database):
     job = JobRequest(service="example", inputs={})
     collection = database["job-request"]
     collection.insert_one(job)
-    assert isinstance(job._id, ObjectId)
+    assert isinstance(job.id, ObjectId)
 
 
 def test_job_request_insert_id_present(database):
@@ -146,4 +146,4 @@ def test_job_request_insert_id_present(database):
     job = JobRequest(_id=object_id, service="example", inputs={})
     collection = database["job-request"]
     collection.insert_one(job)
-    assert job._id == object_id
+    assert job.id == object_id
