@@ -266,96 +266,106 @@ def test_server_settings_loader_reads_from_env(
 
 
 @pytest.mark.parametrize(
-    ("environ", "expected_settings"),
+    ("environ", "expected_uri"),
     [
-        (
+        pytest.param(
             {
                 "SLIVKA_MONGODB_HOST": "example.com:27017",
                 "SLIVKA_MONGODB_DATABASE": "slivka_tst"
             },
-            SlivkaSettings.MongoDB(
-                uri="mongodb://example.com:27017",
-                database="slivka_tst"
-            )
+            "mongodb://example.com:27017",
+            id="basic host"
         ),
-        (
+        pytest.param(
             {
                 "SLIVKA_MONGODB_HOST": "example.com:27017",
                 "SLIVKA_MONGODB_USERNAME": "slivka_user",
                 "SLIVKA_MONGODB_DATABASE": "slivka_tst"
             },
-            SlivkaSettings.MongoDB(
-                uri="mongodb://slivka_user@example.com:27017",
-                database="slivka_tst"
-            )
+            "mongodb://slivka_user@example.com:27017",
+            id="username"
         ),
-        (
+        pytest.param(
             {
                 "SLIVKA_MONGODB_HOST": "example.com:27017",
                 "SLIVKA_MONGODB_USERNAME": "slivka_user",
                 "SLIVKA_MONGODB_PASSWORD": "P4ssW0Rd",
                 "SLIVKA_MONGODB_DATABASE": "slivka_tst"
             },
-            SlivkaSettings.MongoDB(
-                uri="mongodb://slivka_user:P4ssW0Rd@example.com:27017",
-                database="slivka_tst"
-            )
+            "mongodb://slivka_user:P4ssW0Rd@example.com:27017",
+            id="username and password"
         ),
-        (
+        pytest.param(
             {
                 "SLIVKA_MONGODB_HOST": "example.com:27017",
                 "SLIVKA_MONGODB_USERNAME": "slivka user",
+                "SLIVKA_MONGODB_DATABASE": "slivka_tst"
+            },
+            "mongodb://slivka+user@example.com:27017",
+            id="quote-plus space"
+        ),
+        pytest.param(
+            {
+                "SLIVKA_MONGODB_HOST": "example.com:27017",
+                "SLIVKA_MONGODB_USERNAME": "slivka+user",
+                "SLIVKA_MONGODB_DATABASE": "slivka_tst"
+            },
+            "mongodb://slivka%2Buser@example.com:27017",
+            id="%-encode username"
+        ),
+        pytest.param(
+            {
+                "SLIVKA_MONGODB_HOST": "example.com:27017",
+                "SLIVKA_MONGODB_USERNAME": "slivka_user",
                 "SLIVKA_MONGODB_PASSWORD": "p#$_///Or)+",
                 "SLIVKA_MONGODB_DATABASE": "slivka_tst"
             },
-            SlivkaSettings.MongoDB(
-                uri="mongodb://slivka+user:p%23%24_%2F%2F%2FOr%29%2B@example.com:27017",
-                database="slivka_tst"
-            )
+            "mongodb://slivka_user:p%23%24_%2F%2F%2FOr%29%2B@example.com:27017",
+            id="%-encode password"
         ),
-        (
+        pytest.param(
             {
                 "SLIVKA_MONGODB_HOST": "example.host0.com:27017,example.host1.com:27017,example.host2.com:27017",
                 "SLIVKA_MONGODB_QUERY": "replicaSet=xyz",
                 "SLIVKA_MONGODB_DATABASE": "slivka_tst"
             },
-            SlivkaSettings.MongoDB(
-                uri="mongodb://example.host0.com:27017,example.host1.com:27017,example.host2.com:27017?replicaSet=xyz",
-                database="slivka_tst"
-            )
+            "mongodb://example.host0.com:27017,example.host1.com:27017,example.host2.com:27017?replicaSet=xyz",
+            id="replica sets"
         ),
-        (
+        pytest.param(
             {
                 "SLIVKA_MONGODB_HOST": "example.host.com:2137",
                 "SLIVKA_MONGODB_QUERY": "authSource=admin&zlibCompressionLevel=6",
                 "SLIVKA_MONGODB_DATABASE": "slivka_tst"
             },
-            SlivkaSettings.MongoDB(
-                uri="mongodb://example.host.com:2137?authSource=admin&zlibCompressionLevel=6",
-                database="slivka_tst"
-            )
+            "mongodb://example.host.com:2137?authSource=admin&zlibCompressionLevel=6",
+            id="query parameters"
         ),
-        (
+        pytest.param(
+            {
+                "SLIVKA_MONGODB_HOST": "example.host.com:27017/admin",
+                "SLIVKA_MONGODB_DATABASE": "slivka_tst"
+            },
+            "mongodb://example.host.com:27017/admin",
+            id="default authdb"
+        ),
+        pytest.param(
             {
                 "SLIVKA_MONGODB_SOCKET": "/var/run/mongodb-socket",
                 "SLIVKA_MONGODB_DATABASE": "slivka_tst"
             },
-            SlivkaSettings.MongoDB(
-                uri="mongodb://%2Fvar%2Frun%2Fmongodb-socket",
-                database="slivka_tst"
-            )
+            "mongodb://%2Fvar%2Frun%2Fmongodb-socket",
+            id="socket path"
         ),
-        (
+        pytest.param(
             {
                 "SLIVKA_MONGODB_SOCKET": "/var/run/mongodb-socket",
                 "SLIVKA_MONGODB_USERNAME": "slivka_user",
                 "SLIVKA_MONGODB_PASSWORD": "P4S$worD",
                 "SLIVKA_MONGODB_DATABASE": "slivka_tst"
             },
-            SlivkaSettings.MongoDB(
-                uri="mongodb://slivka_user:P4S%24worD@%2Fvar%2Frun%2Fmongodb-socket",
-                database="slivka_tst"
-            )
+            "mongodb://slivka_user:P4S%24worD@%2Fvar%2Frun%2Fmongodb-socket",
+            id="socket and credentials"
         )
     ]
 )
@@ -363,7 +373,7 @@ def test_mongodb_settings_loader_reads_from_env(
         tmp_path,
         minimal_settings,
         environ,
-        expected_settings
+        expected_uri
 ):
     home = tmp_path
     os.mkdir(home / "services")
@@ -372,4 +382,4 @@ def test_mongodb_settings_loader_reads_from_env(
     loader.read_env(environ)
     loader.read_dict({"directory.home": str(home)})
     settings = loader.build()
-    assert settings.mongodb == expected_settings
+    assert settings.mongodb.uri == expected_uri
