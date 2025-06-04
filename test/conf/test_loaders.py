@@ -274,7 +274,7 @@ def test_server_settings_loader_reads_from_env(
                 "SLIVKA_MONGODB_DATABASE": "slivka_tst"
             },
             SlivkaSettings.MongoDB(
-                uri="mongodb://example.com:27017/slivka_tst",
+                uri="mongodb://example.com:27017",
                 database="slivka_tst"
             )
         ),
@@ -285,7 +285,7 @@ def test_server_settings_loader_reads_from_env(
                 "SLIVKA_MONGODB_DATABASE": "slivka_tst"
             },
             SlivkaSettings.MongoDB(
-                uri="mongodb://slivka_user@example.com:27017/slivka_tst",
+                uri="mongodb://slivka_user@example.com:27017",
                 database="slivka_tst"
             )
         ),
@@ -297,7 +297,7 @@ def test_server_settings_loader_reads_from_env(
                 "SLIVKA_MONGODB_DATABASE": "slivka_tst"
             },
             SlivkaSettings.MongoDB(
-                uri="mongodb://slivka_user:P4ssW0Rd@example.com:27017/slivka_tst",
+                uri="mongodb://slivka_user:P4ssW0Rd@example.com:27017",
                 database="slivka_tst"
             )
         ),
@@ -309,7 +309,7 @@ def test_server_settings_loader_reads_from_env(
                 "SLIVKA_MONGODB_DATABASE": "slivka_tst"
             },
             SlivkaSettings.MongoDB(
-                uri="mongodb://slivka+user:p%23%24_%2F%2F%2FOr%29%2B@example.com:27017/slivka_tst",
+                uri="mongodb://slivka+user:p%23%24_%2F%2F%2FOr%29%2B@example.com:27017",
                 database="slivka_tst"
             )
         ),
@@ -320,7 +320,7 @@ def test_server_settings_loader_reads_from_env(
                 "SLIVKA_MONGODB_DATABASE": "slivka_tst"
             },
             SlivkaSettings.MongoDB(
-                uri="mongodb://example.host0.com:27017,example.host1.com:27017,example.host2.com:27017/slivka_tst?replicaSet=xyz",
+                uri="mongodb://example.host0.com:27017,example.host1.com:27017,example.host2.com:27017?replicaSet=xyz",
                 database="slivka_tst"
             )
         ),
@@ -331,7 +331,7 @@ def test_server_settings_loader_reads_from_env(
                 "SLIVKA_MONGODB_DATABASE": "slivka_tst"
             },
             SlivkaSettings.MongoDB(
-                uri="mongodb://example.host.com:2137/slivka_tst?authSource=admin&zlibCompressionLevel=6",
+                uri="mongodb://example.host.com:2137?authSource=admin&zlibCompressionLevel=6",
                 database="slivka_tst"
             )
         ),
@@ -341,7 +341,7 @@ def test_server_settings_loader_reads_from_env(
                 "SLIVKA_MONGODB_DATABASE": "slivka_tst"
             },
             SlivkaSettings.MongoDB(
-                uri="mongodb://%2Fvar%2Frun%2Fmongodb-socket/slivka_tst",
+                uri="mongodb://%2Fvar%2Frun%2Fmongodb-socket",
                 database="slivka_tst"
             )
         ),
@@ -353,7 +353,7 @@ def test_server_settings_loader_reads_from_env(
                 "SLIVKA_MONGODB_DATABASE": "slivka_tst"
             },
             SlivkaSettings.MongoDB(
-                uri="mongodb://slivka_user:P4S%24worD@%2Fvar%2Frun%2Fmongodb-socket/slivka_tst",
+                uri="mongodb://slivka_user:P4S%24worD@%2Fvar%2Frun%2Fmongodb-socket",
                 database="slivka_tst"
             )
         )
