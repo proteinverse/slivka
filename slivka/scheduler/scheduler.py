@@ -95,11 +95,16 @@ class Scheduler:
         """
         if self._finished.is_set():
             raise RuntimeError("scheduler can only be started once")
-        self.log.info('scheduler started')
+        self.log.info('Scheduler is running...')
+        self.log.debug(
+            "Available runners: %s",
+            ", ".join(str(r) for r in self.runners.values())
+        )
         try:
             while not self._finished.wait(1):
                 self.main_loop()
         except KeyboardInterrupt:
+            self.log.info("Keyboard interrupt")
             self.stop()
 
     def main_loop(self):
@@ -129,19 +134,27 @@ class Scheduler:
             partial(_fetch_pending_requests, database),
             pymongo.errors.AutoReconnect, handler=auto_reconnect_handler
         )
+        self.log.info("Collected %d new requests.", len(new_requests))
+        self.log.debug("Collected requests: %s", ", ".join(r.b64id for r in new_requests))
         grouped = self.group_requests(new_requests)
         rejected = grouped.pop(REJECTED, ())
         if rejected:
+            self.log.debug("Rejected requests: %s", ", ".join(r.b64id for r in rejected))
             retry_call(
                 partial(_bulk_set_status, database, rejected, JobStatus.REJECTED),
                 pymongo.errors.AutoReconnect, handler=auto_reconnect_handler
             )
         error = grouped.pop(ERROR, ())
         if error:
+            self.log.debug("Error requests: %s", ", ".join(r.b64id for r in error))
             retry_call(
                 partial(_bulk_set_status, database, error, JobStatus.ERROR),
                 pymongo.errors.AutoReconnect, handler=auto_reconnect_handler
             )
+        self.log.debug(
+            "Accepted requests: %s",
+            ", ".join(r.b64id for l in grouped.values() for r in l)
+        )
         for runner, requests in grouped.items():
             retry_call(
                 partial(_bulk_set_accepted, database, requests, runner),
@@ -227,15 +240,23 @@ class Scheduler:
         for item in items:
             requests = [JobRequest(**kw) for kw in item['requests']]
             try:
+                runner_id = RunnerID(**item['_id'])
                 try:
-                    runner = self.runners[RunnerID(**item['_id'])]
+                    runner = self.runners[runner_id]
                 except KeyError:
-                    self.log.exception("Runner does not exist.")
+                    self.log.exception("No runner matches %s.", runner_id)
                     raise ExecutionFailed(None)
-                self.log.debug("Starting jobs with %s.", runner)
+                self.log.debug(
+                    "Starting requests %s with %s.",
+                    ", ".join(r.b64id for r in requests), runner
+                )
                 started = self._start_requests(runner, requests)
                 queued = []
                 for request, job in started:
+                    self.log.debug(
+                        "Request \"%s\" started. Work dir: \"%s\". Job id: %s",
+                        request.b64id, job.cwd, job.id
+                    )
                     queued.append(request)
                     request.job = JobRequest.Job(
                         job_id=job.id,
@@ -248,14 +269,15 @@ class Scheduler:
                         pymongo.errors.AutoReconnect, handler=auto_reconnect_handler
                     )
             except ExecutionDeferred as e:
-                self.log.debug("Runner %s did not start jobs. Retrying.",
-                               e.runner)
-            except ExecutionFailed:
+                self.log.warning(
+                    "Runner %s did not start jobs. Retrying.", e.runner
+                )
+            except ExecutionFailed as e:
                 retry_call(
                     partial(_bulk_set_status, database, requests, JobStatus.ERROR),
                     pymongo.errors.AutoReconnect, handler=auto_reconnect_handler
                 )
-                self.log.exception("Starting jobs failed.")
+                self.log.exception("Starting jobs failed for %s.", e.args[0])
 
     def _start_requests(self, runner: Runner, requests: List[JobRequest]) \
             -> Iterable[Tuple[JobRequest, JobTuple]]:
@@ -277,7 +299,7 @@ class Scheduler:
             )
             return zip(requests, jobs)
         except Exception as e:
-            self.log.exception("Starting jobs with %s failed.", runner)
+            self.log.exception("Runner %s failed to start requests.", runner)
             counter.failure()
             if counter.give_up:
                 exc = ExecutionFailed(runner)

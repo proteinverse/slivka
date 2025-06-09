@@ -102,6 +102,10 @@ class GridEngineRunner(Runner):
             env=self.env,
             universal_newlines=False
         )
+        log.debug(
+            "Command: \"%s\" exited with %s.\nCommand stderr:\n%s",
+            shlex.join(proc.args), proc.returncode, proc.stderr
+        )
         proc.check_returncode()
         _job_stat.cache_clear()
         match = _job_submitted_regex.match(proc.stdout)

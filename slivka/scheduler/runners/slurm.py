@@ -99,6 +99,10 @@ class SlurmRunner(Runner):
             env=self.env,
             encoding='ascii'
         )
+        log.debug(
+            "Command: \"%s\" exited with %s.\nCommand stderr:\n%s",
+            shlex.join(proc.args), proc.returncode, proc.stderr
+        )
         proc.check_returncode()
         _job_stat.cache_clear()
         match = re.match(r'^(\w+)', proc.stdout)
