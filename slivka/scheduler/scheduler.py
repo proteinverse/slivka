@@ -134,6 +134,8 @@ class Scheduler:
             partial(_fetch_pending_requests, database),
             pymongo.errors.AutoReconnect, handler=auto_reconnect_handler
         )
+        if not new_requests:
+            return
         self.log.info("Collected %d new requests.", len(new_requests))
         self.log.debug("Collected requests: %s", ", ".join(r.b64id for r in new_requests))
         grouped = self.group_requests(new_requests)
