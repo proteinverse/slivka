@@ -7,6 +7,7 @@ import pytest
 from slivka import JobStatus
 from slivka.db.documents import JobRequest
 from slivka.db.helpers import delete_many, insert_many, pull_many
+from slivka.db.repositories import FilesRepository
 from slivka.scheduler import Runner, Scheduler
 from slivka.scheduler.runners import Job, RunnerID
 from slivka.scheduler.scheduler import (
@@ -19,24 +20,33 @@ from slivka.scheduler.scheduler import (
 from test.tools import anything, in_any_order
 
 
-def new_runner(
-    service,
-    name,
-    command=None,
-    args=None,
-    consts=None,
-    env=None,
-    selector_options=None,
-):
-    return Runner(
-        RunnerID(service, name),
-        command=command or [],
-        args=args or [],
-        consts=consts or {},
-        outputs=[],
-        env=env or {},
-        selector_options=selector_options or {},
+@pytest.fixture
+def new_runner(database, slivka_home):
+    files_repo = FilesRepository(
+        slivka_home / "uploads",
+        slivka_home / "jobs",
+        database
     )
+    def factory(
+        service,
+        name,
+        command=None,
+        args=None,
+        consts=None,
+        env=None,
+        selector_options=None,
+    ):
+        return Runner(
+            RunnerID(service, name),
+            files_repository=files_repo,
+            command=command or [],
+            args=args or [],
+            consts=consts or {},
+            outputs=[],
+            env=env or {},
+            selector_options=selector_options or {},
+        )
+    return factory
 
 
 @pytest.fixture()
@@ -57,7 +67,7 @@ def mock_submit():
         yield mock_method
 
 
-def test_group_requests(job_directory):
+def test_group_requests(job_directory, new_runner):
     scheduler = Scheduler(job_directory)
     runner1 = new_runner("example", "runner1")
     runner2 = new_runner("example", "runner2")
@@ -79,7 +89,7 @@ def test_group_requests(job_directory):
     }
 
 
-def test_group_requests_with_context_data(job_directory):
+def test_group_requests_with_context_data(job_directory, new_runner):
     scheduler = Scheduler(job_directory)
     runner1 = new_runner("example", "runner1", selector_options={"strlen": 3})
     runner2 = new_runner("example", "runner2", selector_options={"strlen": 5})
@@ -109,7 +119,7 @@ def test_group_requests_with_context_data(job_directory):
     }
 
 
-def test_group_requests_if_runner_does_not_exist(job_directory):
+def test_group_requests_if_runner_does_not_exist(job_directory, new_runner):
     scheduler = Scheduler(job_directory)
     runner1 = new_runner("example", "runner1")
     scheduler.add_runner(runner1)
@@ -129,7 +139,7 @@ def create_requests(count=1, service="example"):
     ]
 
 
-def test_start_requests_if_successful_start(job_directory, mock_batch_start):
+def test_start_requests_if_successful_start(job_directory, mock_batch_start, new_runner):
     scheduler = Scheduler(job_directory)
     runner = new_runner("example", "example")
     requests = [
@@ -150,7 +160,7 @@ def test_start_requests_if_successful_start(job_directory, mock_batch_start):
 
 
 def test_start_requests_deferred_execution_if_error_raised(
-    job_directory, mock_batch_start
+    job_directory, mock_batch_start, new_runner
 ):
     scheduler = Scheduler(job_directory)
     runner = new_runner("example", "example")
@@ -161,7 +171,7 @@ def test_start_requests_deferred_execution_if_error_raised(
 
 
 def test_start_request_failed_execution_if_too_many_errors_raised(
-    job_directory, mock_batch_start
+    job_directory, mock_batch_start, new_runner
 ):
     scheduler = Scheduler(job_directory)
     runner = new_runner("example", "example")
@@ -173,7 +183,7 @@ def test_start_request_failed_execution_if_too_many_errors_raised(
 
 
 def test_start_request_job_directory_is_job_id(
-    job_directory, mock_batch_start
+    job_directory, mock_batch_start, new_runner
 ):
     scheduler = Scheduler(job_directory)
     runner = new_runner("example", "example")
@@ -199,7 +209,7 @@ class TestJobStatusUpdates:
         delete_many(database, requests)
 
     @pytest.fixture()
-    def scheduler(self, job_directory):
+    def scheduler(self, job_directory, new_runner):
         scheduler = Scheduler(job_directory)
         runner = new_runner("example", "example")
         scheduler.add_runner(runner)

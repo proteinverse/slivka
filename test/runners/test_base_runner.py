@@ -5,7 +5,9 @@ from unittest import mock
 
 import pytest
 
+import slivka.db.repositories
 from slivka.conf import ServiceConfig
+from slivka.db.repositories import FilesRepository
 from slivka.scheduler import Runner
 from slivka.scheduler.runners import Command, Job
 
@@ -51,9 +53,21 @@ def command_consts(request):
 
 
 @pytest.fixture()
-def runner(global_env, command_arguments, command_consts, command_env):
+def runner(
+        global_env,
+        command_arguments,
+        command_consts,
+        command_env,
+        database,
+        slivka_home
+):
     return Runner(
         runner_id=None,
+        files_repository=FilesRepository(
+            slivka_home / "uploads",
+            slivka_home / "jobs",
+            database
+        ),
         command="example",
         args=command_arguments,
         consts=command_consts,
@@ -206,7 +220,6 @@ class TestSingleInputInterpolation:
         "value, expected_command",
         [
             ("input.in", ["input.in"]),
-            ("file.txt", ["input.in"]),
             (None, []),
         ],
     )
