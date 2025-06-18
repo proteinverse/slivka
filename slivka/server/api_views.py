@@ -118,7 +118,9 @@ def service_jobs_view(service_id):
         for file_proxy, file_storage in file_proxy_to_file_storage:
             uploaded_file = save_uploaded_file(
                 file_storage, current_app.config['uploads_dir'], slivka.db.database)
-            # set every file_proxy path for the form to be saved to the database
+            # set file_proxy.path so that the following form.save can write
+            # the request parameters to the database. FileField.to_arg()
+            # requires `path` to be set.
             file_proxy.path = uploaded_file.path
         job_request = form.save(
             slivka.db.database, current_app.config['uploads_dir'])
