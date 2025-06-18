@@ -1,13 +1,17 @@
 from importlib import import_module
 from typing import Type, Tuple, Callable, List
 
+import slivka.db.repositories
 import slivka.scheduler.runners
 from slivka.conf import ServiceConfig
 from slivka.scheduler.runners import RunnerID, Runner
 from slivka.scheduler.scheduler import SelectorMeta, BaseSelector
 
 
-def runners_from_config(config: ServiceConfig) -> Tuple[Callable, List[Runner]]:
+def runners_from_config(
+        config: ServiceConfig,
+        files_repository: slivka.db.repositories.FilesRepository
+) -> Tuple[Callable, List[Runner]]:
     selector_cp = config.execution.selector
     if selector_cp is not None:
         mod, attr = selector_cp.rsplit('.', 1)
@@ -26,6 +30,7 @@ def runners_from_config(config: ServiceConfig) -> Tuple[Callable, List[Runner]]:
         # noinspection PyArgumentList
         runner = cls(
             RunnerID(config.id, runner_conf.id),
+            files_repository=files_repository,
             command=config.command,
             args=config.args,
             consts=runner_conf.consts,

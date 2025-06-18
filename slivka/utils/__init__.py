@@ -242,6 +242,14 @@ def get_classpath(cls):
     return cls.__module__ + '.' + cls.__name__
 
 
+def safe_format(template_string, *values):
+    num_unescaped = template_string.count("%") - 2 * template_string.count("%%")
+    if num_unescaped > 0:
+        return template_string % values
+    else:
+        return template_string
+
+
 class JobStatus(enum.IntEnum):
     PENDING = 1  # Request submitted to the database but not processed yet
     REJECTED = 2  # Request rejected due to input parameter limitations

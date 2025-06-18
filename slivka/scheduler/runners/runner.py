@@ -11,6 +11,8 @@ from typing import List, Union, Dict, Collection, Sequence, Optional, Any
 
 from slivka import JobStatus
 from slivka.conf import ServiceConfig
+from slivka.db import repositories
+from slivka.utils import safe_format
 from slivka.utils.env import expandvars
 
 log = logging.getLogger('slivka.scheduler')
@@ -58,6 +60,7 @@ class Runner:
 
     def __init__(self,
                  runner_id: Optional[RunnerID],
+                 files_repository: repositories.FilesRepository,
                  command: Union[str, List[str]],
                  args: List[ServiceConfig.Argument],
                  consts: Dict[str, Any],
@@ -65,6 +68,7 @@ class Runner:
                  env: Dict[str, str],
                  selector_options: Dict[str, Any] = None):
         self.id = runner_id or self._next_id()
+        self._files_repository = files_repository
         self.outputs = outputs
         self.selector_options = selector_options or {}
 
@@ -97,10 +101,6 @@ class Runner:
     def get_service_name(self): return self.id.service
     service_name = property(get_service_name)
 
-    @staticmethod
-    def _symlink_name(name, count):
-        return '%s.%04d' % (name, count)
-
     def build_args(self, values) -> List[str]:
         """ Inserts given values and returns a list of arguments.
 
@@ -120,14 +120,8 @@ class Runner:
             if value is None or value is False:
                 continue
 
-            if isinstance(value, list):
-                if argument.symlink:
-                    value = [self._symlink_name(argument.symlink, i)
-                             for i in range(len(value))]
-                if argument.join is not None:
-                    value = str.join(argument.join, value)
-            elif argument.symlink:
-                value = argument.symlink
+            if isinstance(value, list) and argument.join is not None:
+                value = str.join(argument.join, value)
 
             if isinstance(value, list):
                 args.extend(
@@ -142,22 +136,42 @@ class Runner:
                 )
         return args
 
-    def _prepare_job(self, inputs, cwd):
+    def _prepare_job(self, inputs, cwd) -> dict:
+        """ Stages input files in the working directory.
+
+        Creates the working directory and prepares input files
+        by creating links in that directory. Returns an updated
+        version of inputs dictionary with symlink names
+        substituted for original paths.
+
+        :param inputs:
+        :param cwd:
+        :return: Updated inputs dictionary
+        """
+        def stage_file(src_path, name_template, index=0):
+            if not os.path.isfile(src_path):
+                raise FileNotFoundError("file '%s' does not exist" % src_path)
+            dst_path = format_symlink_name(
+                template=name_template,
+                file=self._files_repository.from_path(src_path),
+                index=index
+            )
+            _mklink(src_path, os.path.join(cwd, dst_path))
+            return dst_path
+
         os.makedirs(cwd, exist_ok=True)
+        inputs_copy = inputs.copy()
         for argument in self.arguments:
             if argument.symlink:
                 val = inputs.get(argument.id)
                 if isinstance(val, list):
+                    inputs_copy[argument.id] = new_vals = []
                     for i, src in enumerate(val):
-                        if not os.path.isfile(src):
-                            raise FileNotFoundError("file '%s' does not exist" % src)
-                        dst = self._symlink_name(argument.symlink, i)
-                        _mklink(src, os.path.join(cwd, dst))
+                        new_vals.append(stage_file(src, argument.symlink, i))
                 elif isinstance(val, str):
-                    if not os.path.isfile(val):
-                        raise FileNotFoundError("file '%s' does not exist" % val)
-                    _mklink(val, os.path.join(cwd, argument.symlink))
+                    inputs_copy[argument.id] = stage_file(val, argument.symlink)
                 # None is also an option here and should be ignored
+        return inputs_copy
 
     def start(self, inputs: dict, cwd: str) -> Job:
         """ Runs the command in the queuing system.
@@ -291,6 +305,25 @@ class Runner:
 
     def __repr__(self):
         return '%s(%s, %s)' % (self.__class__.__name__, self.service_name, self.name)
+
+
+def format_symlink_name(
+        template: str,
+        file: repositories.File,
+        index: int
+):
+    if "$" in template:
+        stem, ext = os.path.splitext(file.title or os.path.basename(file.path))
+        name = (
+            template
+            .replace("$(filename)", file.title)
+            .replace("$(filename.stem)", stem)
+            .replace("$(filename.ext)", ext)
+        )
+    else:
+        # nothing to substitute
+        name = template
+    return safe_format(name, index)
 
 
 def _mklink(src, dst):

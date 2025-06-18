@@ -147,7 +147,9 @@ def start_scheduler(daemon, pid_file):
     import slivka.scheduler
     from slivka.scheduler.factory import runners_from_config
     from slivka.scheduler.service_monitor import ServiceTest, ServiceTestExecutorThread
-    from slivka.db.repositories import ServiceStatusMongoDBRepository
+    from slivka.db.repositories import (
+        ServiceStatusMongoDBRepository, FilesMongoDBRepository
+    )
 
     def terminate_handler(_signum, _stack): scheduler.stop()
     signals = {
@@ -178,8 +180,16 @@ def start_scheduler(daemon, pid_file):
                 ServiceStatusMongoDBRepository(),
                 temp_dir=settings.directory.jobs,
             )
+            files_repository = FilesMongoDBRepository(
+                uploads_path=settings.directory.uploads,
+                jobs_path=settings.directory.jobs,
+                database=slivka.db.database
+            )
             for service_config in settings.services:
-                selector, runners = runners_from_config(service_config)
+                selector, runners = runners_from_config(
+                    service_config,
+                    files_repository
+                )
                 scheduler.add_selector(service_config.id, selector)
                 for runner in runners:
                     scheduler.add_runner(runner)
