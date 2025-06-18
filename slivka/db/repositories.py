@@ -1,19 +1,22 @@
 import datetime
 import operator
+import os
+import pathlib
 import re
 from base64 import urlsafe_b64decode
 from datetime import datetime, date
+
 from dateutil.relativedelta import relativedelta
 from typing import List
 
 import attr
 import attrs
-import pymongo
+import pymongo.database
 
 import slivka.db
 from slivka import JobStatus
 from slivka.consts import ServiceStatus as Status
-from slivka.db.documents import JobRequest
+from slivka.db.documents import JobRequest, UploadedFile
 from slivka.db.mongo_utils import date_comparison_query
 
 
@@ -272,3 +275,44 @@ class RequestsMongoDBRepository:
 
 
 RequestsRepository = RequestsMongoDBRepository
+
+
+@attrs.define
+class File:
+    path: os.PathLike
+    title: str
+    media_type: str
+
+
+class FilesMongoDBRepository:
+    __uploaded_files_collection = "files"
+
+    def __init__(
+            self,
+            uploads_path: os.PathLike,
+            jobs_path: os.PathLike,
+            database: pymongo.database.Database
+    ):
+        self._uploads_path = pathlib.Path(uploads_path)
+        self._jobs_path = pathlib.Path(jobs_path)
+        self._database = database
+
+    def from_path(self, path: str) -> File:
+        path = pathlib.Path(path)
+        if path.is_relative_to(self._uploads_path):
+            uploaded_file = UploadedFile.find_one(
+                self._database,
+                path=path
+            )
+            if uploaded_file is None:
+                raise Exception(f"Path '{path}' not found in the database.")
+            return uploaded_file
+        elif path.is_relative_to(self._jobs_path):
+            return File(
+                path=path,
+                title=path.name,
+                media_type=""  # TODO: how to get media type?
+            )
+
+
+FilesRepository = FilesMongoDBRepository
