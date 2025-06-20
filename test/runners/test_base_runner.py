@@ -497,8 +497,9 @@ def test_batch_start_with_parameters_submits_commands(
         pytest.param("$(filename).input", "data.txt.input", id="embedded_filename"),
         pytest.param("$(filename.stem).input", "data.input", id="embedded_stem"),
         pytest.param("input$(filename.ext)", "input.txt", id="embedded_ext"),
-        pytest.param("$(tomato.stem)", "$(tomato.stem)", id="invalid_identifier")
+        pytest.param("$(tomato.stem)", "$(tomato.stem)", id="invalid_identifier"),
+        pytest.param("input.%03d.txt", "input.001.txt", id="with_index"),
     ]
 )
 def test_format_symlink_name(file, template, expected_name):
-    assert format_symlink_name(template, file, 0) == expected_name
+    assert format_symlink_name(template, file, 1) == expected_name
