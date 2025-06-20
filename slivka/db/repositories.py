@@ -315,6 +315,12 @@ class FilesMongoDBRepository:
                 title=path.name,
                 media_type=""  # TODO: how to get media type?
             )
+        # fallback for when the file was moved from jobs or uploads dir
+        return File(
+            path=path,
+            title=path.name,
+            media_type=""
+        )
 
 
 FilesRepository = FilesMongoDBRepository

@@ -11,6 +11,7 @@ from slivka.db.repositories import FilesRepository
 from slivka.scheduler import Runner
 from slivka.scheduler.runners import Command, Job
 from slivka.scheduler.runners.runner import format_symlink_name
+from test.conftest import job_directory
 
 Argument = ServiceConfig.Argument
 
@@ -421,6 +422,21 @@ def test_start_creates_file_link(job_directory, runner, mock_submit):
     mock_submit.return_value = Job("", job_directory)
     runner.start({"input": infile.name}, job_directory)
     link_path = os.path.join(job_directory, "input.txt")
+    assert filecmp.cmp(infile.name, link_path), "Files are not identical"
+
+
+@pytest.mark.runner(
+    args=[Argument("input", "$(value)", symlink="$(filename.stem).input.yaml")]
+)
+def test_start_create_file_link_symlink_template(
+    job_directory, runner, mock_submit
+):
+    infile = tempfile.NamedTemporaryFile(prefix="data.")
+    infile.write(b"hello world\n")
+    infile.flush()
+    mock_submit.return_value = Job("", job_directory)
+    runner.start({"input": infile.name}, job_directory)
+    link_path = os.path.join(job_directory, "data.input.yaml")
     assert filecmp.cmp(infile.name, link_path), "Files are not identical"
 
 
