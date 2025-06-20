@@ -313,10 +313,11 @@ def format_symlink_name(
         index: int
 ):
     if "$" in template:
-        stem, ext = os.path.splitext(file.title or os.path.basename(file.path))
+        filename = file.title or os.path.basename(file.path)
+        stem, ext = os.path.splitext(filename)
         name = (
             template
-            .replace("$(filename)", file.title)
+            .replace("$(filename)", filename)
             .replace("$(filename.stem)", stem)
             .replace("$(filename.ext)", ext)
         )

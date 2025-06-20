@@ -287,6 +287,8 @@ class File:
 class FilesMongoDBRepository:
     __uploaded_files_collection = "files"
 
+    File = File
+
     def __init__(
             self,
             uploads_path: os.PathLike,

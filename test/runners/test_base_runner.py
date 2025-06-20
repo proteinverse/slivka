@@ -10,6 +10,7 @@ from slivka.conf import ServiceConfig
 from slivka.db.repositories import FilesRepository
 from slivka.scheduler import Runner
 from slivka.scheduler.runners import Command, Job
+from slivka.scheduler.runners.runner import format_symlink_name
 
 Argument = ServiceConfig.Argument
 
@@ -452,3 +453,36 @@ def test_batch_start_with_parameters_submits_commands(
             for i in range(n)
         ]
     )
+
+@pytest.mark.parametrize(
+    'file',
+    [
+        FilesRepository.File(
+            path="/var/slivka/example/data.txt",
+            title=None,
+            media_type="text/plain"
+        ),
+        FilesRepository.File(
+            path="/var/slivka/example/job/xyz/outfile",
+            title="data.txt",
+            media_type="text/plain"
+        )
+    ],
+    ids=["untitled_file", "titled_file"]
+)
+@pytest.mark.parametrize(
+    ("template", "expected_name"),
+    [
+        pytest.param("input.txt", "input.txt", id="no_interpolation"),
+        pytest.param("$(filename)", "data.txt", id="filename"),
+        pytest.param("$(filename.stem)", "data", id="stem"),
+        pytest.param("$(filename.ext)", ".txt", id="ext"),
+        pytest.param("$(filename.stem)$(filename.ext)", "data.txt", id="stem+ext"),
+        pytest.param("$(filename).input", "data.txt.input", id="embedded_filename"),
+        pytest.param("$(filename.stem).input", "data.input", id="embedded_stem"),
+        pytest.param("input$(filename.ext)", "input.txt", id="embedded_ext"),
+        pytest.param("$(tomato.stem)", "$(tomato.stem)", id="invalid_identifier")
+    ]
+)
+def test_format_symlink_name(file, template, expected_name):
+    assert format_symlink_name(template, file, 0) == expected_name
