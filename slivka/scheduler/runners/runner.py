@@ -186,7 +186,7 @@ class Runner:
             already present
         :return: job id as returned by :py:meth:`.submit`
         """
-        self._prepare_job(inputs, cwd)
+        inputs = self._prepare_job(inputs, cwd)
         cmd = self.command + self.build_args(inputs)
         cmd_string = ' '.join(shlex.quote(str(arg)) for arg in cmd)
         with open(os.path.join(cwd, ".command"), 'w') as f:
@@ -209,7 +209,7 @@ class Runner:
         """
         cmds = []
         for cwd, inp in zip(cwds, inputs):
-            self._prepare_job(inp, cwd)
+            inp = self._prepare_job(inp, cwd)
             cmd = self.command + self.build_args(inp)
             cmds.append(cmd)
         if log.isEnabledFor(logging.INFO):
