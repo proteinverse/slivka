@@ -304,7 +304,7 @@ class FilesMongoDBRepository:
         if path.is_relative_to(self._uploads_path):
             uploaded_file = UploadedFile.find_one(
                 self._database,
-                path=path
+                path=str(path)
             )
             if uploaded_file is None:
                 raise Exception(f"Path '{path}' not found in the database.")
