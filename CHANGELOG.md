@@ -15,28 +15,6 @@ Changelog:
 - Changed: store and retrieve date-times in UTC format in the database
 - Added: database migration script converting date-times to correct UTC dates.
 
-## [0.8.5b5]
-
-- Fixed: slurm status checking function not showing jobs from all partitions
-- Added: logging commands run to `.command` file in the job's work directory
-- Changed: `mongodb.database` parameter is no longer used as the default
-  authentication database. Specify the
-  authentication database using uri path.
-- Added: additional mongodb options can be set using `mongodb.query` or
-  `mongodb.options` properties.
-- Deprecated: settings query parameters in the `mongodb.host` uri
-
-## [0.8.5b4]
-
-- Added: defining and editing titles and media-types of uploaded files.
-- Added: `slivka validate` command for checking the settings files.
-- Added: settings can be loaded from environment variables
-- Added: command line option to keep test output files
-
-## [0.8.5b3]
-
-- Added: jobs dasboard API where existing jobs can be retrieved.
-
 ## [0.8.5] - (upcoming)
 
 - Added: support for Python 3.11, 3.12 and 3.13
@@ -63,6 +41,18 @@ Changelog:
   scheduler from hanging indefinitely on execution system failure.
 - Changed: extend settings file validation to allow beta pre-releases in slivka
   version field.
+- Added: jobs dasboard API where existing jobs can be retrieved.
+- Added: defining and editing titles and media-types of uploaded files.
+- Added: `slivka validate` command for checking the settings files.
+- Added: settings can be loaded from environment variables
+- Added: command line option to keep test output files
+- Fixed: slurm status checking function not showing jobs from all partitions
+- Added: logging commands run to `.command` file in the job's work directory
+- Changed: `mongodb.database` parameter is no longer used as the default
+  authentication database. Specify the authentication database using uri path.
+- Added: additional mongodb options can be set using `mongodb.query` or
+  `mongodb.options` properties.
+- Deprecated: settings query parameters in the `mongodb.host` uri
 
 ## [0.8.4] - 2024-02-05
 

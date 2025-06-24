@@ -1,4 +1,4 @@
-name: slivka
+qname: slivka
 channels:
   - conda-forge
   - defaults
