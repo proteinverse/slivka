@@ -5,9 +5,13 @@ from unittest import mock
 
 import pytest
 
+import slivka.db.repositories
 from slivka.conf import ServiceConfig
+from slivka.db.repositories import FilesRepository
 from slivka.scheduler import Runner
 from slivka.scheduler.runners import Command, Job
+from slivka.scheduler.runners.runner import format_symlink_name
+from test.conftest import job_directory
 
 Argument = ServiceConfig.Argument
 
@@ -51,9 +55,21 @@ def command_consts(request):
 
 
 @pytest.fixture()
-def runner(global_env, command_arguments, command_consts, command_env):
+def runner(
+        global_env,
+        command_arguments,
+        command_consts,
+        command_env,
+        database,
+        slivka_home
+):
     return Runner(
         runner_id=None,
+        files_repository=FilesRepository(
+            slivka_home / "uploads",
+            slivka_home / "jobs",
+            database
+        ),
         command="example",
         args=command_arguments,
         consts=command_consts,
@@ -206,7 +222,6 @@ class TestSingleInputInterpolation:
         "value, expected_command",
         [
             ("input.in", ["input.in"]),
-            ("file.txt", ["input.in"]),
             (None, []),
         ],
     )
@@ -410,6 +425,21 @@ def test_start_creates_file_link(job_directory, runner, mock_submit):
     assert filecmp.cmp(infile.name, link_path), "Files are not identical"
 
 
+@pytest.mark.runner(
+    args=[Argument("input", "$(value)", symlink="$(filename.stem).input.yaml")]
+)
+def test_start_create_file_link_symlink_template(
+    job_directory, runner, mock_submit
+):
+    infile = tempfile.NamedTemporaryFile(prefix="data.")
+    infile.write(b"hello world\n")
+    infile.flush()
+    mock_submit.return_value = Job("", job_directory)
+    runner.start({"input": infile.name}, job_directory)
+    link_path = os.path.join(job_directory, "data.input.yaml")
+    assert filecmp.cmp(infile.name, link_path), "Files are not identical"
+
+
 def test_batch_start_submits_commands(
     runner, job_directory_factory, mock_submit
 ):
@@ -439,3 +469,37 @@ def test_batch_start_with_parameters_submits_commands(
             for i in range(n)
         ]
     )
+
+@pytest.mark.parametrize(
+    'file',
+    [
+        FilesRepository.File(
+            path="/var/slivka/example/data.txt",
+            title=None,
+            media_type="text/plain"
+        ),
+        FilesRepository.File(
+            path="/var/slivka/example/job/xyz/outfile",
+            title="data.txt",
+            media_type="text/plain"
+        )
+    ],
+    ids=["untitled_file", "titled_file"]
+)
+@pytest.mark.parametrize(
+    ("template", "expected_name"),
+    [
+        pytest.param("input.txt", "input.txt", id="no_interpolation"),
+        pytest.param("$(filename)", "data.txt", id="filename"),
+        pytest.param("$(filename.stem)", "data", id="stem"),
+        pytest.param("$(filename.ext)", ".txt", id="ext"),
+        pytest.param("$(filename.stem)$(filename.ext)", "data.txt", id="stem+ext"),
+        pytest.param("$(filename).input", "data.txt.input", id="embedded_filename"),
+        pytest.param("$(filename.stem).input", "data.input", id="embedded_stem"),
+        pytest.param("input$(filename.ext)", "input.txt", id="embedded_ext"),
+        pytest.param("$(tomato.stem)", "$(tomato.stem)", id="invalid_identifier"),
+        pytest.param("input.%03d.txt", "input.001.txt", id="with_index"),
+    ]
+)
+def test_format_symlink_name(file, template, expected_name):
+    assert format_symlink_name(template, file, 1) == expected_name
