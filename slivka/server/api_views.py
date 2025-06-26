@@ -25,8 +25,6 @@ from .forms.form import BaseForm
 
 bp = flask.Blueprint('api-v1_1', __name__, url_prefix='/api/v1.1')
 
-_DATETIME_STRF = "%Y-%m-%dT%H:%M:%S"
-
 
 @bp.route('/version', endpoint='version', methods=['GET'])
 def version_view():
@@ -74,13 +72,13 @@ def _service_resource(service: ServiceConfig):
         status = {
             'status': status.status.name,
             'errorMessage': status.message,
-            'timestamp': status.timestamp.strftime(_DATETIME_STRF)
+            'timestamp': status.timestamp.astimezone().isoformat()
         }
     else:
         status = {
             'status': 'UNKNOWN',
             'errorMessage': "",
-            'timestamp': datetime.fromtimestamp(0).strftime(_DATETIME_STRF)
+            'timestamp': datetime.fromtimestamp(0).isoformat()
         }
     form: Type[BaseForm] = flask.current_app.config['forms'][service.id]
     return {
@@ -243,11 +241,11 @@ def _job_resource(job_request: JobRequest):
         'id': job_request.b64id,
         'service': job_request.service,
         'parameters': parameters,
-        'submissionTime': job_request.submission_time.strftime(_DATETIME_STRF),
+        'submissionTime': job_request.submission_time.astimezone().isoformat(),
         'completionTime': (
                 job_request.status.is_finished() and
                 job_request.completion_time and
-                job_request.completion_time.strftime(_DATETIME_STRF) or None
+                job_request.completion_time.astimezone().isoformat() or None
         ),
         'finished': job_request.status.is_finished(),
         'status': job_request.status.name

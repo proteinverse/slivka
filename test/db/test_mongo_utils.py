@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pytest
 from dateutil.relativedelta import relativedelta
@@ -79,10 +79,17 @@ def test_invalid_date_expression(date_expr):
     ]
 )
 def test_date_comparison_query(database, date_expr, inserted_dates, expected_result):
-    inserted_dates = (datetime.fromisoformat(d) for d in inserted_dates)
-    expected_result = [datetime.fromisoformat(d) for d in expected_result]
+    inserted_dates = [
+        datetime.fromisoformat(d).astimezone()
+        for d in inserted_dates
+    ]
+    expected_result = [
+        datetime.fromisoformat(d).astimezone(timezone.utc)
+        for d in expected_result
+    ]
     collection = database["dates_collection"]
     collection.insert_many([{"date": date} for date in inserted_dates])
     query = date_comparison_query(date_expr)
     results = list(collection.find({"date": query}))
-    assert [r['date'] for r in results] == expected_result
+    # returned values are naive, but represent UTC datetime
+    assert [r['date'].replace(tzinfo=timezone.utc) for r in results] == expected_result

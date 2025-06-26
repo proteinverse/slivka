@@ -6,7 +6,7 @@ import os.path
 import pathlib
 import shutil
 from base64 import urlsafe_b64decode
-from datetime import datetime
+from datetime import datetime, timezone
 
 import mongomock
 import pytest
@@ -198,7 +198,7 @@ def test_service_view_state_info(app_client, service_state):
     assert service_info["status"] == {
         "status": state.name,
         "errorMessage": message,
-        "timestamp": "2023-08-16T12:00:00",
+        "timestamp": datetime(2023, 8, 16, 12, 0).astimezone().isoformat(),
     }
 
 
@@ -466,7 +466,10 @@ class TestJobViewForExistingJob:
         }
 
     def test_job_submission_time(self, job_info):
-        assert job_info["submissionTime"] == "2023-06-18T00:00:00"
+        expected = datetime(2023, 6, 18, tzinfo=timezone.utc) \
+            .astimezone() \
+            .isoformat()
+        assert job_info["submissionTime"] == expected
 
     def test_job_completion_time_is_none(self, job_info):
         assert job_info.get("completionTime") is None

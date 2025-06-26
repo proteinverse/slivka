@@ -63,14 +63,19 @@ def date_comparison_query(expression):
     if operator == "$eq":
         # e.g. =YYYY-mm means YYYY-mm-01T00:00:00 <= date <= YYYY-mm-31T23:59:59
         # which is the same as YYYY-mm-01T00:00:00 <= date < YYYY-(mm+1)-01T00:00:00
-        return {"$gte": value, "$lt": value + relativedelta(**{resolution: +1})}
-    if operator == "$lte":
+        query = {"$gte": value, "$lt": value + relativedelta(**{resolution: +1})}
+    elif operator == "$lte":
         # e.g. <=YYYY-mm means date <= YYYY-mm-31T23:59:59
         # which is the same as date < YYYY-(mm+1)T00:00:00
-        return {"$lt": value + relativedelta(**{resolution: +1})}
-    if operator == "$gt":
+        query = {"$lt": value + relativedelta(**{resolution: +1})}
+    elif operator == "$gt":
         # e.g. >YYYY-mm means date > YYYY-mm-31T23:59:59
         # which is the same as date >= YYYY-(mm+1)-01T00:00:00
-        return {"$gte": value + relativedelta(**{resolution: +1})}
-    # other operators don't need rewriting
-    return {operator: value}
+        query = {"$gte": value + relativedelta(**{resolution: +1})}
+    else:
+        # other operators don't need rewriting
+        query = {operator: value}
+    return {
+        op: val.astimezone()
+        for op, val in query.items()
+    }

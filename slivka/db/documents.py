@@ -1,7 +1,7 @@
 import enum
 import os
 from base64 import urlsafe_b64encode, urlsafe_b64decode
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pymongo.collection
 from bson import ObjectId
@@ -90,8 +90,8 @@ class JobRequest(MongoDocument):
     def __init__(self, *,
                  service,
                  inputs,
-                 timestamp=None,
-                 completion_time=None,
+                 timestamp: datetime | None = None,
+                 completion_time: datetime | None = None,
                  status=None,
                  runner=None,
                  job=None,
@@ -99,8 +99,16 @@ class JobRequest(MongoDocument):
         super().__init__(
             service=service,
             inputs=inputs,
-            timestamp=timestamp if timestamp is not None else datetime.now(),
-            completion_time=completion_time,
+            # Convert naive to UTC which is a pymongo way of storing dates.
+            # Warning: provide UTC time when constructing the object!
+            timestamp=
+                datetime.now(timezone.utc) if timestamp is None
+                else timestamp.replace(tzinfo=timezone.utc) if timestamp.tzinfo is None
+                else timestamp,
+            completion_time=
+                completion_time.replace(tzinfo=timezone.utc)
+                if completion_time is not None and completion_time.tzinfo is None
+                else completion_time,
             status=status if status is not None else JobStatus.PENDING,
             runner=runner,
             job=self.Job(**job) if job else None,
