@@ -1,11 +1,29 @@
 Changelog:
 
+## [0.8.5b6]
+
+- Added: you can use $(filename), $(filename.stem) and $(filename.ext)
+  placeholders when defining the name for the
+  symlink in the service configuration file. Those are substituted for the
+  names given to the uploaded files using
+  `Content-Disposition` header or an actual filesystem name for job results.
+- Changed: symlink names no longer have indices appended to them for file
+  arrays. You need to specify c-style format
+  placeholder explicitly e.g. %d.
+- Changed: operate on timezone aware date-times. API returns date-times with
+  timezones.
+- Changed: store and retrieve date-times in UTC format in the database
+- Added: database migration script converting date-times to correct UTC dates.
+
 ## [0.8.5b5]
 
 - Fixed: slurm status checking function not showing jobs from all partitions
 - Added: logging commands run to `.command` file in the job's work directory
-- Changed: `mongodb.database` parameter is no longer used as the default authentication database. Specify the authentication database using uri path.
-- Added: additional mongodb options can be set using `mongodb.query` or `mongodb.options` properties.
+- Changed: `mongodb.database` parameter is no longer used as the default
+  authentication database. Specify the
+  authentication database using uri path.
+- Added: additional mongodb options can be set using `mongodb.query` or
+  `mongodb.options` properties.
 - Deprecated: settings query parameters in the `mongodb.host` uri
 
 ## [0.8.5b4]
