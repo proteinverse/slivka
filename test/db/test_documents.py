@@ -51,7 +51,7 @@ def test_job_request_to_dict():
     assert dict(job) == {
         "service": "example",
         "inputs": {},
-        "timestamp": datetime.datetime(2024, 4, 12),
+        "timestamp": datetime.datetime(2024, 4, 12, tzinfo=datetime.timezone.utc),
         "runner": "default",
         "status": 1,
         "completion_time": None,
