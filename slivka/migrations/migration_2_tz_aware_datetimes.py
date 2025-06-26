@@ -7,8 +7,8 @@ from packaging.version import Version
 from pymongo import MongoClient
 
 name = "Timezone aware timestamps."
-from_versions = SpecifierSet("<0.8.6b1", prereleases=True)
-to_version = Version("0.8.6b1")
+from_versions = SpecifierSet("<0.8.5b6", prereleases=True)
+to_version = Version("0.8.5b6")
 
 
 def apply(database, from_tz=None):

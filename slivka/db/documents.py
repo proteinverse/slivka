@@ -100,6 +100,7 @@ class JobRequest(MongoDocument):
             service=service,
             inputs=inputs,
             # Convert naive to UTC which is a pymongo way of storing dates.
+            # Warning: provide UTC time when constructing the object!
             timestamp=
                 datetime.now(timezone.utc) if timestamp is None
                 else timestamp.replace(tzinfo=timezone.utc) if timestamp.tzinfo is None
