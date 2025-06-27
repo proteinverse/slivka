@@ -4,7 +4,7 @@ import logging
 import os
 import threading
 from collections import defaultdict, namedtuple, OrderedDict
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import partial
 from typing import (Iterable, Dict, List, Any, Union, DefaultDict,
                     Sequence, Callable, Tuple)
@@ -319,7 +319,7 @@ class Scheduler:
         for item in items:
             _id = RunnerID(**item['_id'])
             requests = [JobRequest(**kw) for kw in item['requests']]
-            ts = datetime.now()
+            ts = datetime.now(timezone.utc)
             try:
                 runner = self.runners[_id]
             except KeyError:
