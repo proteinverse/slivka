@@ -64,7 +64,8 @@ def tz_aware_timestamps_command(mongodb_uri, database, from_timezone):
     provide a DATABASE which slivka uses.
     """
     mongo = MongoClient(mongodb_uri)
-    apply(database=mongo[database], from_tz=ZoneInfo(from_timezone))
+    from_tz = from_timezone and ZoneInfo(from_timezone)
+    apply(database=mongo[database], from_tz=from_tz)
 
 
 if __name__ == "__main__":
