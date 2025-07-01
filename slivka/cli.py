@@ -267,7 +267,12 @@ def test_services(services, keep_output):
     sys.path.append(settings.directory.home)
     from slivka.scheduler.factory import runners_from_config
     from slivka.scheduler.service_monitor import ServiceTest, ServiceTestExecutorThread
-    from slivka.db.repositories import ServiceStatusMongoDBRepository
+    from slivka.db.repositories import ServiceStatusMongoDBRepository, FilesMongoDBRepository
+    files_repository = FilesMongoDBRepository(
+        uploads_path=settings.directory.uploads,
+        jobs_path=settings.directory.jobs,
+        database=slivka.db.database
+    )
     service_monitor = ServiceTestExecutorThread(
         ServiceStatusMongoDBRepository(),
         temp_dir=settings.directory.jobs,
@@ -275,7 +280,7 @@ def test_services(services, keep_output):
     for service_config in settings.services:
         if services and service_config.id not in services:
             continue
-        selector, runners = runners_from_config(service_config)
+        selector, runners = runners_from_config(service_config, files_repository=files_repository)
         service_monitor.extend_tests(
             ServiceTest(
                 runner=runner,
@@ -312,8 +317,14 @@ def validate(home):
     from slivka.conf import settings
     os.environ.setdefault("SLIVKA_HOME", settings.directory.home)
     sys.path.append(settings.directory.home)
+    from slivka.db.repositories import FilesMongoDBRepository
+    files_repository = FilesMongoDBRepository(
+        uploads_path=settings.directory.uploads,
+        jobs_path=settings.directory.jobs,
+        database=slivka.db.database
+    )
     for service in settings.services:
-        runners_from_config(service)
+        runners_from_config(service, files_repository=files_repository)
 
 
 main.add_command(slivka.migrations.cli.migrate)
