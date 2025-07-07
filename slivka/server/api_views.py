@@ -7,6 +7,7 @@ from operator import attrgetter
 from typing import Type
 
 import flask
+import pymongo.database
 from bson import ObjectId
 from flask import request, url_for, jsonify, current_app
 from werkzeug.datastructures import FileStorage, MultiDict
@@ -104,14 +105,31 @@ def service_jobs_view(service_id):
         flask.abort(404)
     form_cls: Type[BaseForm] = flask.current_app.config['forms'][service_id]
 
+    form_data = MultiDict()
     files = MultiDict()
     file_proxy_to_file_storage = []
     for key, file_storage in flask.request.files.items(multi=True):
         file_proxy = FileProxy(file=file_storage)
         files.add(key, file_proxy)
         file_proxy_to_file_storage.append((file_proxy, file_storage))
+    file_proxy_to_file_name = []
+    for name, value in flask.request.form.items(multi=True):
+        if not isinstance(form_cls[name], FileField):
+            form_data.add(name, value)
+            continue
+        file_id, *options = value.split(';')
+        if not options:
+            form_data.add(name, value)
+            continue
+        # for now, only the filename option exists
+        if not options[0].startswith("filename="):
+            flask.abort(400, f"Illegal value for parameter {name}: '{value}'")
+        file_name = options[0][len("filename="):]
+        file_proxy = FileProxy.from_id(file_id, slivka.db.database)
+        files.add(name, file_proxy)
+        file_proxy_to_file_name.append((file_proxy, file_name))
 
-    form = form_cls(flask.request.form, files)
+    form = form_cls(form_data, files)
     if form.is_valid():
         for file_proxy, file_storage in file_proxy_to_file_storage:
             uploaded_file = save_uploaded_file(
@@ -119,6 +137,14 @@ def service_jobs_view(service_id):
             # set file_proxy.path so that the following form.save can write
             # the request parameters to the database. FileField.to_arg()
             # requires `path` to be set.
+            file_proxy.path = uploaded_file.path
+        for file_proxy, file_name in file_proxy_to_file_name:
+            uploaded_file = remake_uploaded_file(
+                file_proxy,
+                file_name,
+                current_app.config['uploads_dir'],
+                slivka.db.database
+            )
             file_proxy.path = uploaded_file.path
         job_request = form.save(
             slivka.db.database, current_app.config['uploads_dir'])
@@ -349,6 +375,21 @@ def save_uploaded_file(file: FileStorage, directory, database):
     file.seek(0)
     file.save(save_path)
     uploaded_file = UploadedFile(_id=oid, title=file.filename, media_type=file.mimetype, path=save_path)
+    insert_one(database, uploaded_file)
+    return uploaded_file
+
+
+def remake_uploaded_file(
+        file: FileProxy,
+        title: str,
+        directory: os.PathLike,
+        database: pymongo.database.Database
+):
+    oid = ObjectId()
+    filename = base64.urlsafe_b64encode(oid.binary).decode()
+    new_path = os.path.join(directory, filename)
+    os.symlink(file.path, new_path)
+    uploaded_file = UploadedFile(_id=oid, title=title, path=new_path)
     insert_one(database, uploaded_file)
     return uploaded_file
 
