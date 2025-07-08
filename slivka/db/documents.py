@@ -156,7 +156,7 @@ class UploadedFile(MongoDocument):
                  path,
                  **kwargs):
         super().__init__(
-            title=title,
+            title=self._validate_filename(title),
             media_type=media_type,
             path=path,
             **kwargs
@@ -168,8 +168,19 @@ class UploadedFile(MongoDocument):
         return self.b64id
 
     def _get_title(self): return self['title']
-    def _set_title(self, val): self['title'] = val
+    def _set_title(self, val):
+        self['title'] = self._validate_filename(val)
     title = property(_get_title, _set_title)
+
+    @staticmethod
+    def _validate_filename(filename):
+        if filename is None:
+            return None
+        if os.path.pathsep in filename:
+            raise ValueError(f"Name contains a path separator: '{filename}'")
+        if filename == os.path.curdir or filename == os.path.pardir:
+            raise ValueError(f"Illegal name: {filename}")
+        return filename
 
     def _get_media_type(self): return self['media_type']
     def _set_media_type(self, val): self['media_type'] = val
