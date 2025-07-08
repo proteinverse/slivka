@@ -8,6 +8,7 @@ from bson import ObjectId
 
 from slivka import JobStatus, consts
 from slivka.utils import deprecated
+from slivka.utils.exceptions import IllegalFileNameError
 
 
 class MongoDocument(dict):
@@ -177,9 +178,9 @@ class UploadedFile(MongoDocument):
         if filename is None:
             return None
         if os.path.pathsep in filename:
-            raise ValueError(f"Name contains a path separator: '{filename}'")
+            raise IllegalFileNameError(f"Name contains a path separator: '{filename}'")
         if filename == os.path.curdir or filename == os.path.pardir:
-            raise ValueError(f"Illegal name: {filename}")
+            raise IllegalFileNameError(f"Illegal name: {filename}")
         return filename
 
     def _get_media_type(self): return self['media_type']
