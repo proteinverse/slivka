@@ -156,6 +156,12 @@ class Runner:
                 file=self._files_repository.from_path(src_path),
                 index=index
             )
+            dst_path = os.path.normpath(dst_path)
+            if os.path.isabs(dst_path) or dst_path.startswith(os.path.pardir):
+                raise PermissionError(
+                    f"Creating files outside the working directory is not "
+                    f"allowed: {dst_path}"
+                )
             _mklink(src_path, os.path.join(cwd, dst_path))
             return dst_path
 
