@@ -178,9 +178,9 @@ class UploadedFile(MongoDocument):
         if filename is None:
             return None
         if os.path.pathsep in filename:
-            raise IllegalFileNameError(f"Name contains a path separator: '{filename}'")
+            raise IllegalFileNameError(filename)
         if filename == os.path.curdir or filename == os.path.pardir:
-            raise IllegalFileNameError(f"Illegal name: {filename}")
+            raise IllegalFileNameError(filename)
         return filename
 
     def _get_media_type(self): return self['media_type']

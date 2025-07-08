@@ -23,6 +23,7 @@ from slivka.utils.path import *
 from .forms.fields import FileField, ChoiceField
 from .forms.file_proxy import FileProxy
 from .forms.form import BaseForm
+from ..utils.exceptions import IllegalFileNameError
 
 bp = flask.Blueprint('api-v1_1', __name__, url_prefix='/api/v1.1')
 
@@ -374,7 +375,10 @@ def save_uploaded_file(file: FileStorage, directory, database):
     save_path = os.path.join(directory, filename)
     file.seek(0)
     file.save(save_path)
-    uploaded_file = UploadedFile(_id=oid, title=file.filename, media_type=file.mimetype, path=save_path)
+    try:
+        uploaded_file = UploadedFile(_id=oid, title=file.filename, media_type=file.mimetype, path=save_path)
+    except IllegalFileNameError as e:
+        flask.abort(400, f"Illegal filename: {e.filename}")
     insert_one(database, uploaded_file)
     return uploaded_file
 
@@ -389,7 +393,10 @@ def remake_uploaded_file(
     filename = base64.urlsafe_b64encode(oid.binary).decode()
     new_path = os.path.join(directory, filename)
     os.symlink(file.path, new_path)
-    uploaded_file = UploadedFile(_id=oid, title=title, path=new_path)
+    try:
+        uploaded_file = UploadedFile(_id=oid, title=title, path=new_path)
+    except IllegalFileNameError as e:
+        flask.abort(400, f"Illegal filename: {e.filename}")
     insert_one(database, uploaded_file)
     return uploaded_file
 
@@ -401,7 +408,10 @@ def file_view(file_id):
         flask.abort(404)
     if request.method == "PUT":
         if "label" in request.form:
-            uploaded_file.title = request.form["label"]
+            try:
+                uploaded_file.title = request.form["label"]
+            except IllegalFileNameError as e:
+                flask.abort(400, f"Illegal filename: {e.filename}")
         if "mediaType" in request.form:
             uploaded_file.media_type = request.form["mediaType"]
         push_one(slivka.db.database, uploaded_file)
