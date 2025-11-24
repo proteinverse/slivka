@@ -6,14 +6,13 @@ from unittest import mock
 import pytest
 
 import slivka.db.repositories
-from slivka.conf import ServiceConfig
+from slivka.conf.models import ServiceConfig
+from slivka.conf.models import CommandLineArgumentConfig as Argument
 from slivka.db.repositories import FilesRepository
 from slivka.scheduler import Runner
 from slivka.scheduler.runners import Command, Job
 from slivka.scheduler.runners.runner import format_symlink_name
 from test.conftest import job_directory
-
-Argument = ServiceConfig.Argument
 
 
 @pytest.fixture()

@@ -1,14 +1,12 @@
 import os
 from unittest import mock
-from urllib.parse import quote_plus
 
 import pytest
 import yaml
 
-import slivka.conf.loaders
 from slivka.compat.resources import open_text
-from slivka.conf import SlivkaSettings
-from slivka.conf.loaders import SettingsLoader_0_8_5b5
+from slivka.conf import models
+from slivka.conf.builders import ProjectConfigBuilder
 
 
 @pytest.fixture
@@ -24,12 +22,15 @@ def test_conf_directory_real_path(tmp_path, minimal_settings):
     os.symlink(real_home, home, target_is_directory=True)
     os.mkdir(home / "services")
     with mock.patch.dict(os.environ, SLIVKA_HOME=str(home)):
-        conf = slivka.conf.loaders.load_settings_0_3(minimal_settings)
-    assert conf.directory.home == str(real_home)
-    assert conf.directory.jobs == str(real_home / 'jobs')
-    assert conf.directory.uploads == str(real_home / 'uploads')
-    assert conf.directory.logs == str(real_home / 'log')
-    assert conf.directory.services == str(real_home/ 'services')
+        builder = ProjectConfigBuilder()
+        builder.read_dict(minimal_settings)
+        builder.read_env(os.environ)
+        conf = builder.build()
+    assert conf.directory.home == os.fspath(real_home)
+    assert conf.directory.jobs == os.fspath(real_home / 'jobs')
+    assert conf.directory.uploads == os.fspath(real_home / 'uploads')
+    assert conf.directory.logs == os.fspath(real_home / 'log')
+    assert conf.directory.services == [os.fspath(real_home/ 'services')]
 
 @pytest.mark.parametrize(
     ("settings_dict", "expected_uri"),
@@ -198,7 +199,7 @@ def test_settings_loader_mongodb_uri(
 ):
     home = tmp_path
     os.mkdir(home / "services")
-    loader = SettingsLoader_0_8_5b5()
+    loader = ProjectConfigBuilder()
     loader.read_dict(minimal_settings)
     loader.read_dict(settings_dict)
     loader.read_dict({"directory.home": str(home)})
@@ -212,7 +213,7 @@ def test_settings_loader_query_in_mongodb_host_gives_future_warning(
 ):
     home = tmp_path
     os.mkdir(home / "services")
-    loader = SettingsLoader_0_8_5b5()
+    loader = ProjectConfigBuilder()
     loader.read_dict(minimal_settings)
     with pytest.warns(FutureWarning):
         loader.read_dict({
@@ -229,7 +230,7 @@ def test_settings_loader_query_in_mongodb_host_gives_future_warning(
                 "SLIVKA_SERVER_PREFIX": "/slivka",
                 "SLIVKA_SERVER_HOST": "0.0.0.0:5000"
             },
-             SlivkaSettings.Server(
+            models.ServerConfig(
                 prefix="/slivka",
                 host="0.0.0.0:5000",
                 uploads_path="/media/uploads",
@@ -240,7 +241,7 @@ def test_settings_loader_query_in_mongodb_host_gives_future_warning(
             {
                 "SLIVKA_SERVER_PREFIX": "/my_slivka",
             },
-            SlivkaSettings.Server(
+            models.ServerConfig(
                 prefix="/my_slivka",
                 host="127.0.0.1:4040",
                 uploads_path="/media/uploads",
@@ -257,7 +258,7 @@ def test_server_settings_loader_reads_from_env(
 ):
     home = tmp_path
     os.mkdir(home / "services")
-    loader = SettingsLoader_0_8_5b5()
+    loader = ProjectConfigBuilder()
     loader.read_dict(minimal_settings)
     loader.read_env(environ)
     loader.read_dict({"directory.home": str(home)})
@@ -377,7 +378,7 @@ def test_mongodb_settings_loader_reads_from_env(
 ):
     home = tmp_path
     os.mkdir(home / "services")
-    loader = SettingsLoader_0_8_5b5()
+    loader = ProjectConfigBuilder()
     loader.read_dict(minimal_settings)
     loader.read_env(environ)
     loader.read_dict({"directory.home": str(home)})

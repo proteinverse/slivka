@@ -15,7 +15,7 @@ from werkzeug.datastructures import FileStorage, MultiDict
 import slivka.conf
 from slivka import JobStatus
 from slivka.compat import resources
-from slivka.conf import ServiceConfig
+from slivka.conf.models import ServiceConfig, OutputFileConfig
 from slivka.db.documents import JobRequest, CancelRequest, UploadedFile
 from slivka.db.helpers import insert_one, push_one
 from slivka.db.repositories import ServiceStatusRepository, UsageStatsRepository, RequestsRepository
@@ -331,7 +331,7 @@ def job_file_view(job_id, file_path):
 
 
 def _job_file_resource(job_request: JobRequest,
-                       output_def: ServiceConfig.OutputFile,
+                       output_def: OutputFileConfig,
                        rel_path: str):
     job_id = job_request.b64id
     resource_location = url_for(".job_file", job_id=job_id, file_path=rel_path)

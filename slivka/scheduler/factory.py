@@ -3,7 +3,7 @@ from typing import Type, Tuple, Callable, List
 
 import slivka.db.repositories
 import slivka.scheduler.runners
-from slivka.conf import ServiceConfig
+from slivka.conf.models import ServiceConfig
 from slivka.scheduler.runners import RunnerID, Runner
 from slivka.scheduler.scheduler import SelectorMeta, BaseSelector
 

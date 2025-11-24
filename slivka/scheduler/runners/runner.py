@@ -10,7 +10,7 @@ from collections import ChainMap, namedtuple
 from typing import List, Union, Dict, Collection, Sequence, Optional, Any
 
 from slivka import JobStatus
-from slivka.conf import ServiceConfig
+from slivka.conf.models import ServiceConfig, CommandLineArgumentConfig, OutputFileConfig
 from slivka.db import repositories
 from slivka.utils import safe_format
 from slivka.utils.env import expandvars
@@ -62,9 +62,9 @@ class Runner:
                  runner_id: Optional[RunnerID],
                  files_repository: repositories.FilesRepository,
                  command: Union[str, List[str]],
-                 args: List[ServiceConfig.Argument],
+                 args: List[CommandLineArgumentConfig],
                  consts: Dict[str, Any],
-                 outputs: List[ServiceConfig.OutputFile],
+                 outputs: List[OutputFileConfig],
                  env: Dict[str, str],
                  selector_options: Dict[str, Any] = None):
         self.id = runner_id or self._next_id()

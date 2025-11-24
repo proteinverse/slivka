@@ -18,8 +18,8 @@ from werkzeug.datastructures import FileStorage
 import slivka.server
 from slivka import JobStatus
 from slivka.compat import resources
-from slivka.conf import SlivkaSettings
-from slivka.conf.loaders import load_settings_0_3
+from slivka.conf import SlivkaProjectConfig
+from slivka.conf.builders import ProjectConfigBuilder
 from slivka.db.documents import JobRequest, UploadedFile
 from slivka.db.helpers import delete_one, insert_one, insert_many, delete_many, pull_one
 from slivka.db.repositories import (
@@ -32,12 +32,14 @@ resources_path = pathlib.Path(__file__).parent / "resources"
 
 
 @pytest.fixture(scope="module")
-def project_config(slivka_home) -> SlivkaSettings:
+def project_config(slivka_home) -> SlivkaProjectConfig:
     template_path = os.path.join(os.path.dirname(__file__), "test_project")
     shutil.copytree(template_path, slivka_home, dirs_exist_ok=True)
-    with open(os.path.join(slivka_home, "config.yml")) as config_file:
-        config = load_settings_0_3(yaml.safe_load(config_file), slivka_home)
-    return config
+    config_file = os.path.join(slivka_home, "config.yml")
+    builder = ProjectConfigBuilder()
+    builder.read_dict({"directory.home": os.fspath(slivka_home)})
+    builder.read_yaml(config_file)
+    return builder.build()
 
 
 @pytest.fixture(scope="module")
@@ -49,7 +51,7 @@ def flask_app(project_config):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def uploads_directory(project_config: SlivkaSettings):
+def uploads_directory(project_config: SlivkaProjectConfig):
     path = project_config.directory.uploads
     os.makedirs(path, exist_ok=False)
     yield path
@@ -57,7 +59,7 @@ def uploads_directory(project_config: SlivkaSettings):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def jobs_directory(project_config: SlivkaSettings):
+def jobs_directory(project_config: SlivkaProjectConfig):
     path = project_config.directory.jobs
     os.makedirs(path, exist_ok=False)
     yield path

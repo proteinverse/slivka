@@ -6,7 +6,7 @@ from typing import Optional, Iterator, Mapping, Type
 from frozendict import frozendict
 from werkzeug.datastructures import MultiDict
 
-from slivka.conf import ServiceConfig
+from slivka.conf.models import ServiceConfig
 from slivka.db.documents import JobRequest
 from .fields import *
 

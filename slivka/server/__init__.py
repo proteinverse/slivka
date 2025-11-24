@@ -1,7 +1,7 @@
 import flask
 
 import slivka
-from slivka.conf import SlivkaSettings
+from slivka.conf import SlivkaProjectConfig
 from slivka.server.forms import FormLoader
 
 try:
@@ -35,7 +35,7 @@ class PrefixMiddleware:
         environ['PATH_INFO'] = '/'.join(path_parts)
 
 
-def create_app(config: SlivkaSettings = None):
+def create_app(config: SlivkaProjectConfig = None):
     config = config or slivka.conf.settings
     form_loader = FormLoader()
     for service in config.services:

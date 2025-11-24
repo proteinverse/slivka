@@ -3,30 +3,31 @@ import sys
 from types import ModuleType
 
 from slivka.utils import cached_property
-from . import loaders
-from .loaders import ServiceConfig, SlivkaSettings, SettingsLoader_0_8_5b5
+from .models import SlivkaProjectConfig
+from .builders import ProjectConfigBuilder, ProjectConfigurationError
 
 
 def _load():
     home = os.getenv("SLIVKA_HOME", os.getcwd())
-    loader = SettingsLoader_0_8_5b5()
-    loader.read_dict({"directory.home": home})
+    home = os.path.realpath(home)
+    builder = ProjectConfigBuilder()
+    builder.read_dict({"directory.home": home})
     files = ['settings.yaml', 'settings.yml', 'config.yaml', 'config.yml']
     files = (os.path.join(home, fn) for fn in files)
     try:
         file = next(filter(os.path.isfile, files))
-        loader.read_yaml(file)
+        builder.read_yaml(file)
     except StopIteration:
-        raise loaders.ImproperlyConfigured(
+        raise ProjectConfigurationError(
             'Settings file not found in %s. Check if SLIVKA_HOME environment '
             'variable is set correctly and the directory contains '
             'settings.yaml or config.yaml.' % home
         ) from None
-    loader.read_env(os.environ)
-    return loader.build()
+    builder.read_env(os.environ)
+    return builder.build()
 
 
-def bootstrap(conf: SlivkaSettings):
+def bootstrap(conf: SlivkaProjectConfig):
     os.makedirs(conf.directory.jobs, exist_ok=True)
     os.makedirs(conf.directory.logs, exist_ok=True)
     os.makedirs(conf.directory.uploads, exist_ok=True)
@@ -40,20 +41,20 @@ class _ConfModule(ModuleType):
         return conf
 
     def load_file(self, fp):
-        loader = SettingsLoader_0_8_5b5()
-        loader.read_yaml(fp)
-        conf = loader.build()
+        builder = ProjectConfigBuilder()
+        builder.read_yaml(fp)
+        conf = builder.build()
         bootstrap(conf)
         self.settings = conf
 
     def load_dict(self, config):
-        loader = SettingsLoader_0_8_5b5()
-        loader.read_dict(config)
-        conf = loader.build()
+        builder = ProjectConfigBuilder()
+        builder.read_dict(config)
+        conf = builder.build()
         bootstrap(conf)
         self.settings = conf
 
 
-settings: loaders.SlivkaSettings
+settings: SlivkaProjectConfig
 
 sys.modules[__name__].__class__ = _ConfModule
